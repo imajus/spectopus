@@ -38,7 +38,8 @@
 - **Payments:** x402 (Express middleware, `@x402/express`, `@x402/evm`)
 - **Discovery:** x402 Bazaar (`@x402/extensions`)
 - **Storage:** S3-compatible object storage (e.g. Cloudflare R2 or MinIO)
-- **LLM:** Claude (via Anthropic SDK) for generation and validation stages
+- **AI SDK:** Vercel AI SDK (`ai`) — model-agnostic, swappable providers
+- **LLM:** OpenAI GPT-5 (via `@ai-sdk/openai`)
 - **Block explorer API:** Basescan/Etherscan API for ABI and source code fetching
 - **Network:** Base (Mainnet) only for PoC
 
@@ -216,7 +217,8 @@ This demonstrates the full agent journey: discover → evaluate → pay → use.
 | Variable | Description | Required |
 |---|---|---|
 | `PORT` | Server listen port | No (default: `3000`) |
-| `ANTHROPIC_API_KEY` | Anthropic API key for Claude | Yes |
+| `AI_PROVIDER` | AI SDK provider (`openai`, `anthropic`, etc.) | No (default: `openai`) |
+| `OPENAI_API_KEY` | OpenAI API key (when using OpenAI provider) | Yes* |
 | `ETHERSCAN_API_KEY` | Basescan/Etherscan API key for ABI fetching | Yes |
 | `S3_ENDPOINT` | S3-compatible storage endpoint URL | Yes |
 | `S3_BUCKET` | S3 bucket name for skill storage | Yes |
@@ -275,7 +277,8 @@ Machine-readable agent manifest required by hackathon tracks 2 and 3.
   "techStack": {
     "runtime": "node.js",
     "framework": "express",
-    "llm": "claude-sonnet-4-6",
+    "aiSdk": "vercel-ai-sdk",
+    "llm": "openai-gpt-5",
     "payments": "x402"
   },
   "endpoints": {
