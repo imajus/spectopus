@@ -1,0 +1,63 @@
+{
+  "name": "Spectopus",
+  "version": "0.1.0",
+  "description": "AI-powered agent skill generator for smart contracts. Given a contract address, Spectopus researches the ABI, detects ERC patterns, and generates a SKILL.md file that other agents can use to interact with the contract.",
+  "operator": {
+    "wallet": "0x0000000000000000000000000000000000000000",
+    "contact": "https://github.com/imajus/spectopus"
+  },
+  "identity": {
+    "standard": "ERC-8004",
+    "chain": "eip155:8453",
+    "registrationTx": null
+  },
+  "tools": [
+    {
+      "name": "fetch_abi",
+      "description": "Fetch ABI for a smart contract from Basescan/Etherscan"
+    },
+    {
+      "name": "fetch_source",
+      "description": "Fetch verified source code for a smart contract"
+    },
+    {
+      "name": "detect_erc_patterns",
+      "description": "Detect ERC token standards (ERC-20, ERC-721, ERC-1155, etc.) implemented by a contract"
+    }
+  ],
+  "techStack": [
+    "Node.js",
+    "Express",
+    "x402",
+    "Vercel AI SDK",
+    "GPT-4.1 / GPT-5",
+    "AWS S3",
+    "Base Mainnet"
+  ],
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "/skills/generate",
+      "description": "Kick off async generation of an Agent Skill for a smart contract",
+      "pricing": "$0.10 USDC",
+      "network": "eip155:8453",
+      "input": {
+        "contractAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "chainId": 8453,
+        "message": "optional extra context for the AI"
+      },
+      "output": {
+        "id": "uuid",
+        "url": "https://example.com/skills/uuid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/skills/:id",
+      "description": "Download a generated Agent Skill (SKILL.md). Returns status if still generating.",
+      "pricing": "$0.01 USDC",
+      "network": "eip155:8453",
+      "output": "text/markdown — SKILL.md content"
+    }
+  ]
+}
