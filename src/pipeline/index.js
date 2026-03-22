@@ -2,6 +2,7 @@ import { updateStage, putSkill, markFailed } from '../storage.js';
 import { runResearch } from './research.js';
 import { runGenerate } from './generate.js';
 import { runValidate } from './validate.js';
+import { registerSkillEndpoint } from '../bazaar.js';
 
 const MAX_RETRIES = 2;
 
@@ -54,6 +55,15 @@ export async function runPipeline(skillId, contractAddress, chainId, message) {
     // Store final skill with status: ready
     const finalContent = markReady(skillContent);
     await putSkill(skillId, finalContent);
+
+    // Register skill endpoint on Bazaar (non-blocking)
+    registerSkillEndpoint(skillId, {
+      contractAddress,
+      chainId,
+      description: `Agent Skill for contract ${contractAddress} on chain ${chainId} ($0.01 USDC)`,
+    }).catch(err => {
+      console.warn(`Bazaar skill registration warning for ${skillId}:`, err.message);
+    });
   } catch (err) {
     await markFailed(skillId, err.message);
     throw err;
