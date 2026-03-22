@@ -1,4 +1,3 @@
-import { Router } from 'express';
 import { paymentMiddleware } from 'x402-express';
 import { createThirdwebClient } from 'thirdweb';
 import { facilitator as createFacilitator } from 'thirdweb/x402';
@@ -13,12 +12,12 @@ function buildPaymentMiddleware(payToAddress) {
   return paymentMiddleware(
     payToAddress,
     {
-      'POST /generate': {
+      'POST /skills/generate': {
         price: '$0.10',
         network: 'base',
         config: { description: 'Generate an Agent Skill for a smart contract ($0.10 USDC)' },
       },
-      'GET /[id]': {
+      'GET /skills/[id]': {
         price: '$0.01',
         network: 'base',
         config: { description: 'Download a generated Agent Skill ($0.01 USDC)' },
@@ -28,16 +27,13 @@ function buildPaymentMiddleware(payToAddress) {
   );
 }
 
-export function createSkillsRouter() {
-  const router = Router();
-
+export function registerSkillsRoutes(app) {
   const payToAddress = process.env.THIRDWEB_SERVER_WALLET_ADDRESS;
   if (payToAddress) {
-    router.use(buildPaymentMiddleware(payToAddress));
+    app.use(buildPaymentMiddleware(payToAddress));
   }
 
-  // POST /skills/generate
-  router.post('/generate', async (req, res) => {
+  app.post('/skills/generate', async (req, res) => {
     const { contractAddress, message } = req.body ?? {};
 
     if (!contractAddress) {
@@ -56,14 +52,11 @@ export function createSkillsRouter() {
     return res.json({ id, url });
   });
 
-  // GET /skills/:id
-  router.get('/:id', async (req, res) => {
+  app.get('/skills/:id', async (req, res) => {
     const { id } = req.params;
 
     const skill = await getSkill(id);
     if (!skill) return res.status(404).json({ error: 'Skill not found' });
     return res.type('text/markdown').send(skill);
   });
-
-  return router;
 }

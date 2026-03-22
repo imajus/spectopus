@@ -1,15 +1,16 @@
 import express from 'express';
-import { createSkillsRouter } from './routes/skills.js';
+import { registerSkillsRoutes } from './routes/skills.js';
 
 export function createApp() {
   const app = express();
+  app.set('trust proxy', true);
   app.use(express.json());
 
   app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
   });
 
-  app.use('/skills', createSkillsRouter());
+  registerSkillsRoutes(app);
 
   return app;
 }
