@@ -5,24 +5,22 @@ import { detectERCPatterns } from './erc.js';
 
 export const researchTools = {
   fetchABI: tool({
-    description: 'Fetch the ABI of a smart contract from Basescan/Etherscan',
+    description: 'Fetch the ABI of a smart contract from Basescan (Base Mainnet)',
     parameters: z.object({
       contractAddress: z.string().describe('The contract address to fetch ABI for'),
-      chainId: z.number().describe('The chain ID (8453 for Base Mainnet, 84532 for Base Sepolia)'),
     }),
-    execute: async ({ contractAddress, chainId }) => {
-      return await fetchABI(contractAddress, chainId);
+    execute: async ({ contractAddress }) => {
+      return await fetchABI(contractAddress);
     },
   }),
 
   fetchSourceCode: tool({
-    description: 'Fetch the verified source code of a smart contract from Basescan/Etherscan',
+    description: 'Fetch the verified source code of a smart contract from Basescan (Base Mainnet)',
     parameters: z.object({
       contractAddress: z.string().describe('The contract address to fetch source code for'),
-      chainId: z.number().describe('The chain ID (8453 for Base Mainnet, 84532 for Base Sepolia)'),
     }),
-    execute: async ({ contractAddress, chainId }) => {
-      return await fetchSourceCode(contractAddress, chainId);
+    execute: async ({ contractAddress }) => {
+      return await fetchSourceCode(contractAddress);
     },
   }),
 

@@ -10,17 +10,16 @@ const MAX_RETRIES = 2;
  *
  * @param {string} skillId - UUID for the skill (S3 key)
  * @param {string} contractAddress - contract address to generate skill for
- * @param {number} chainId - chain ID (e.g. 8453 for Base Mainnet)
  * @param {string} [message] - optional user message / extra context
  */
-export async function runPipeline(skillId, contractAddress, chainId, message) {
+export async function runPipeline(skillId, contractAddress, message) {
   let retries = 0;
 
   try {
     // Stage 1: Research
     await updateStage(skillId, 'research');
 
-    const research = await runResearch(contractAddress, chainId);
+    const research = await runResearch(contractAddress);
 
     if (research.abiAvailable === false) {
       throw new Error('Contract ABI is not available — skill generation cannot proceed');

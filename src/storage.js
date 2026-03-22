@@ -50,7 +50,7 @@ export async function createPlaceholder(id, metadata) {
     `status: "generating"`,
     `stage: "research"`,
     `contractAddress: "${metadata.contractAddress}"`,
-    `chainId: ${metadata.chainId}`,
+    `chainId: 8453`,
     '---',
     '',
     '# Skill generation in progress',

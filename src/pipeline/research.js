@@ -11,14 +11,13 @@ const SYSTEM_PROMPT = readFileSync(join(__dirname, 'prompts/research-system.md')
 /**
  * Run the research stage for a smart contract.
  * @param {string} contractAddress
- * @param {number} chainId
  * @returns {Promise<object>} structured research summary
  */
-export async function runResearch(contractAddress, chainId) {
+export async function runResearch(contractAddress) {
   const { text } = await generateText({
     model,
     system: SYSTEM_PROMPT,
-    prompt: `Research the smart contract at address ${contractAddress} on chain ${chainId}. Use the tools to fetch the ABI, source code, and detect ERC patterns. Then return a JSON object with your findings.`,
+    prompt: `Research the smart contract at address ${contractAddress} on Base Mainnet (chainId 8453). Use the tools to fetch the ABI, source code, and detect ERC patterns. Then return a JSON object with your findings.`,
     tools: researchTools,
     maxSteps: 10,
   });
@@ -32,7 +31,7 @@ export async function runResearch(contractAddress, chainId) {
   const summary = JSON.parse(jsonMatch[0]);
   return {
     contractAddress,
-    chainId,
+    chainId: 8453,
     ...summary,
   };
 }

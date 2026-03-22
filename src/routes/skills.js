@@ -58,18 +58,18 @@ export function createSkillsRouter() {
 
   // POST /skills/generate
   router.post('/generate', async (req, res) => {
-    const { contractAddress, chainId, message } = req.body ?? {};
+    const { contractAddress, message } = req.body ?? {};
 
-    if (!contractAddress || chainId == null) {
-      return res.status(400).json({ error: 'contractAddress and chainId are required' });
+    if (!contractAddress) {
+      return res.status(400).json({ error: 'contractAddress is required' });
     }
 
     const id = crypto.randomUUID();
     const url = `${BASE_URL}/skills/${id}`;
 
-    await createPlaceholder(id, { contractAddress, chainId });
+    await createPlaceholder(id, { contractAddress });
 
-    runPipeline(id, contractAddress, chainId, message).catch(err => {
+    runPipeline(id, contractAddress, message).catch(err => {
       console.error(`Pipeline failed for skill ${id}:`, err);
     });
 

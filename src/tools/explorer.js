@@ -1,18 +1,8 @@
-const EXPLORER_URLS = {
-  8453: 'https://api.basescan.org/api',
-  84532: 'https://api-sepolia.basescan.org/api',
-};
+const EXPLORER_URL = 'https://api.basescan.org/api';
 
-function getExplorerUrl(chainId) {
-  const url = EXPLORER_URLS[chainId];
-  if (!url) throw new Error(`Unsupported chainId: ${chainId}`);
-  return url;
-}
-
-export async function fetchABI(contractAddress, chainId) {
-  const baseUrl = getExplorerUrl(chainId);
+export async function fetchABI(contractAddress) {
   const apiKey = process.env.ETHERSCAN_API_KEY;
-  const url = `${baseUrl}?module=contract&action=getabi&address=${contractAddress}&apikey=${apiKey}`;
+  const url = `${EXPLORER_URL}?module=contract&action=getabi&address=${contractAddress}&apikey=${apiKey}`;
 
   const res = await fetch(url);
   const data = await res.json();
@@ -25,10 +15,9 @@ export async function fetchABI(contractAddress, chainId) {
   }
 }
 
-export async function fetchSourceCode(contractAddress, chainId) {
-  const baseUrl = getExplorerUrl(chainId);
+export async function fetchSourceCode(contractAddress) {
   const apiKey = process.env.ETHERSCAN_API_KEY;
-  const url = `${baseUrl}?module=contract&action=getsourcecode&address=${contractAddress}&apikey=${apiKey}`;
+  const url = `${EXPLORER_URL}?module=contract&action=getsourcecode&address=${contractAddress}&apikey=${apiKey}`;
 
   const res = await fetch(url);
   const data = await res.json();

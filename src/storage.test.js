@@ -41,7 +41,7 @@ async function getStorage() {
 describe('createPlaceholder', () => {
   it('produces correct frontmatter', async () => {
     const { createPlaceholder, getSkill } = await getStorage();
-    await createPlaceholder('abc123', { contractAddress: '0xDEAD', chainId: 8453 });
+    await createPlaceholder('abc123', { contractAddress: '0xDEAD' });
     const content = await getSkill('abc123');
     expect(content).toContain('status: "generating"');
     expect(content).toContain('stage: "research"');
@@ -53,7 +53,7 @@ describe('createPlaceholder', () => {
 describe('updateStage', () => {
   it('modifies frontmatter stage field', async () => {
     const { createPlaceholder, updateStage, getSkill } = await getStorage();
-    await createPlaceholder('abc123', { contractAddress: '0xDEAD', chainId: 8453 });
+    await createPlaceholder('abc123', { contractAddress: '0xDEAD' });
     await updateStage('abc123', 'generate');
     const content = await getSkill('abc123');
     expect(content).toContain('stage: "generate"');
@@ -64,7 +64,7 @@ describe('updateStage', () => {
 describe('markFailed', () => {
   it('sets status to failed and includes error in body', async () => {
     const { createPlaceholder, markFailed, getSkill } = await getStorage();
-    await createPlaceholder('abc123', { contractAddress: '0xDEAD', chainId: 8453 });
+    await createPlaceholder('abc123', { contractAddress: '0xDEAD' });
     await markFailed('abc123', 'Validation failed after 2 retries');
     const content = await getSkill('abc123');
     expect(content).toContain('status: "failed"');
