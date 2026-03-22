@@ -1,28 +1,21 @@
-const EXPLORER_URL = 'https://api.basescan.org/api';
+const BLOCKSCOUT_URL = 'https://base.blockscout.com';
 
 export async function fetchABI(contractAddress) {
-  const apiKey = process.env.ETHERSCAN_API_KEY;
-  const url = `${EXPLORER_URL}?module=contract&action=getabi&address=${contractAddress}&apikey=${apiKey}`;
+  const url = `${BLOCKSCOUT_URL}/api/v2/smart-contracts/${contractAddress}`;
 
   const res = await fetch(url);
   const data = await res.json();
 
-  if (data.status !== '1' || !data.result) return null;
-  try {
-    return JSON.parse(data.result);
-  } catch {
-    return null;
-  }
+  if (!data.abi) return null;
+  return data.abi;
 }
 
 export async function fetchSourceCode(contractAddress) {
-  const apiKey = process.env.ETHERSCAN_API_KEY;
-  const url = `${EXPLORER_URL}?module=contract&action=getsourcecode&address=${contractAddress}&apikey=${apiKey}`;
+  const url = `${BLOCKSCOUT_URL}/api/v2/smart-contracts/${contractAddress}`;
 
   const res = await fetch(url);
   const data = await res.json();
 
-  if (data.status !== '1' || !data.result?.[0]) return null;
-  const sourceCode = data.result[0].SourceCode;
-  return sourceCode || null;
+  if (!data.source_code) return null;
+  return data.source_code;
 }
