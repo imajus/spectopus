@@ -19,12 +19,12 @@ Express server with two x402-paywalled endpoints:
 2. **Generate** — LLM produces SKILL.md following Agent Skills spec
 3. **Validate** — spec validation + ABI cross-check + safety check; retries Stage 2 on failure (max 2 loops)
 
-Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Completed skills are auto-indexed on x402 Bazaar via the CDP facilitator during payment settlement.
+Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Completed skills are auto-indexed on thirdweb's x402 Bazaar via the thirdweb facilitator during payment settlement.
 
 ## Tech Stack
 
 - Node.js + Express + x402 middleware (`@x402/express`, `@x402/evm`)
-- CDP facilitator (`@coinbase/x402`) — Base Mainnet requires CDP API keys (`CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`)
+- thirdweb facilitator (`thirdweb/x402`) — requires `THIRDWEB_SECRET_KEY` + `THIRDWEB_SERVER_WALLET_ADDRESS`
 - Vercel AI SDK (`ai`) with swappable providers — currently `@ai-sdk/openai` (GPT-5)
 - S3-compatible object storage
 - Basescan/Etherscan API for ABI fetching
@@ -34,8 +34,8 @@ Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Complet
 
 - The Bazaar has no POST registration API — resources are auto-indexed by the facilitator during payment verification
 - `declareDiscoveryExtension()` in route configs embeds discovery metadata in 402 responses for the facilitator to catalog
-- `https://x402.org/facilitator` only supports testnets; Base Mainnet requires CDP facilitator
-- x402 docs: https://docs.x402.org/llms.txt — CDP seller guide: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers.md
+- thirdweb facilitator docs: https://portal.thirdweb.com/x402/facilitator — thirdweb x402 API: https://api.thirdweb.com/llms.txt
+- `ThirdwebX402Facilitator` is directly compatible with `x402ResourceServer` from `@x402/express` (no `HTTPFacilitatorClient` wrapper needed)
 
 ## Key Documentation
 
@@ -49,3 +49,4 @@ Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Complet
 - Vitest for testing
 - Generated skills follow the [Agent Skills specification](https://agentskills.io/specification.md)
 - Code examples in generated skills use viem (Base ecosystem standard)
+- Spectopus SKILL.md (self-describing skill for agents): `skills/spectopus/SKILL.md`

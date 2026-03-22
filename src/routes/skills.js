@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import { paymentMiddleware, x402ResourceServer } from '@x402/express';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
-import { HTTPFacilitatorClient } from '@x402/core/http';
-import { facilitator } from '@coinbase/x402';
-import { privateKeyToAccount } from 'viem/accounts';
+import { createThirdwebClient } from 'thirdweb';
+import { facilitator as createFacilitator } from 'thirdweb/x402';
 import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
 import { createPlaceholder, getSkill } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
@@ -12,8 +11,10 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const NETWORK = 'eip155:8453'; // Base Mainnet
 
 function buildResourceServer() {
-  const facilitatorClient = new HTTPFacilitatorClient(facilitator);
-  return new x402ResourceServer(facilitatorClient).register(NETWORK, new ExactEvmScheme());
+  const client = createThirdwebClient({ secretKey: process.env.THIRDWEB_SECRET_KEY });
+  const serverWalletAddress = process.env.THIRDWEB_SERVER_WALLET_ADDRESS;
+  const f = createFacilitator({ client, serverWalletAddress });
+  return new x402ResourceServer(f).register(NETWORK, new ExactEvmScheme());
 }
 
 function buildPaymentMiddleware(payToAddress) {
@@ -50,10 +51,9 @@ function buildPaymentMiddleware(payToAddress) {
 export function createSkillsRouter() {
   const router = Router();
 
-  const privateKey = process.env.WALLET_PRIVATE_KEY;
-  if (privateKey) {
-    const account = privateKeyToAccount(privateKey);
-    router.use(buildPaymentMiddleware(account.address));
+  const payToAddress = process.env.THIRDWEB_SERVER_WALLET_ADDRESS;
+  if (payToAddress) {
+    router.use(buildPaymentMiddleware(payToAddress));
   }
 
   // POST /skills/generate
