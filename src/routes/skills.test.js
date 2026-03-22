@@ -2,14 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.js';
 
-// Mock storage so tests don't need a real S3 connection.
+// Mock storage and pipeline so tests don't need real S3 or LLM connections.
 // Tests run without WALLET_PRIVATE_KEY, so x402 middleware is also bypassed.
 vi.mock('../storage.js', () => ({
   createPlaceholder: vi.fn().mockResolvedValue(undefined),
   getSkill: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock('../pipeline/index.js', () => ({
+  runPipeline: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { createPlaceholder, getSkill } from '../storage.js';
+import { runPipeline } from '../pipeline/index.js';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -50,6 +55,15 @@ describe('POST /skills/generate', () => {
       contractAddress: '0xabc',
       chainId: 8453,
     });
+  });
+
+  it('fires the pipeline async with skill id, contractAddress, chainId, message', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .post('/skills/generate')
+      .send({ contractAddress: '0xabc', chainId: 8453, message: 'Focus on ERC-20' });
+
+    expect(runPipeline).toHaveBeenCalledWith(res.body.id, '0xabc', 8453, 'Focus on ERC-20');
   });
 
   it('returns unique ids for separate requests', async () => {

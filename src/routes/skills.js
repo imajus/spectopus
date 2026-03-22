@@ -3,6 +3,7 @@ import { paymentMiddleware, x402ResourceServer } from '@x402/express';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createPlaceholder, getSkill } from '../storage.js';
+import { runPipeline } from '../pipeline/index.js';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const FACILITATOR_URL = 'https://x402.org/facilitator';
@@ -60,10 +61,9 @@ export function createSkillsRouter() {
 
     await createPlaceholder(id, { contractAddress, chainId });
 
-    // TODO: Start generation pipeline async (fire-and-forget) once pipeline is implemented
-    // runPipeline(id, contractAddress, chainId, message).catch(err => {
-    //   console.error(`Pipeline failed for skill ${id}:`, err);
-    // });
+    runPipeline(id, contractAddress, chainId, message).catch(err => {
+      console.error(`Pipeline failed for skill ${id}:`, err);
+    });
 
     return res.json({ id, url });
   });
