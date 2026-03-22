@@ -32,13 +32,6 @@ The orchestrator SHALL catch errors at any stage and mark the skill as failed in
 - **WHEN** the research stage throws an error
 - **THEN** the skill is marked as failed with the error message
 
-### Requirement: Execution logging
-The orchestrator SHALL log structured execution data (tool calls, LLM calls, decisions, timing, retries) and append it to `logs/agent_log.jsonl` on pipeline completion.
-
-#### Scenario: Log entry written
-- **WHEN** a pipeline run completes (success or failure)
-- **THEN** a JSON log entry is appended to `logs/agent_log.jsonl` with runId, skillId, stages, timing, and status
-
 ### Requirement: Model configuration
 The pipeline SHALL export the LLM model from a single `src/pipeline/model.js` module, using Vercel AI SDK with the configured provider.
 

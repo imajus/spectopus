@@ -8,7 +8,6 @@ The pipeline runs asynchronously — it's kicked off by the API endpoint and run
 - 3-stage pipeline: research → generate → validate
 - Retry loop: validation failure feeds errors to generate stage (max 2 retries)
 - S3 status updates between stages
-- Structured execution logging (agent_log.jsonl)
 - Model-agnostic via Vercel AI SDK
 
 **Non-Goals:**
@@ -27,8 +26,6 @@ The pipeline runs asynchronously — it's kicked off by the API endpoint and run
 **Generate stage receives structured research output** — The research stage produces a structured summary (contract name, detected standards, key functions, gotchas). This is passed as user message context to the generate stage, along with the Agent Skills spec as system prompt.
 
 **Validate stage is 3 checks in sequence** — Frontmatter validation (programmatic), ABI cross-check (LLM), safety check (LLM). If any fail, collect all errors and retry generate stage.
-
-**Execution logger** — `src/pipeline/logger.js` accumulates stage data during a run and appends a JSON line to `logs/agent_log.jsonl` on completion. Simple file append, no rotation.
 
 ## Risks / Trade-offs
 
