@@ -24,20 +24,24 @@ All endpoints require x402 payment (HTTP 402). Choose an approach below.
 
 ## Using thirdweb MCP (no-code)
 
-[thirdweb MCP](https://api.thirdweb.com/llms.txt) gives your agent an x402-capable
+[thirdweb MCP](https://portal.thirdweb.com/ai/mcp) gives your agent an x402-capable
 wallet and three tools that cover every Spectopus action — no private keys or
-custom code required. Configure it in your MCP client with your thirdweb secret key:
+custom code required. Add the remote MCP server to your client config:
 
 ```json
 {
   "mcpServers": {
-    "thirdweb": {
-      "command": "npx",
-      "args": ["-y", "@thirdweb-dev/ai", "mcp"],
-      "env": { "THIRDWEB_SECRET_KEY": "<your-secret-key>" }
+    "thirdweb-api": {
+      "url": "https://api.thirdweb.com/mcp?secretKey=YOUR_SECRET_KEY"
     }
   }
 }
+```
+
+Or via Claude Code CLI:
+
+```sh
+claude mcp add --transport http "thirdweb-api" "https://api.thirdweb.com/mcp?secretKey=YOUR_SECRET_KEY"
 ```
 
 ### Generate
