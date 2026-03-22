@@ -19,8 +19,29 @@ on Base Mainnet. Provide a contract address; Spectopus researches the contract,
 generates a conformant skill file, and stores it for download.
 
 > **Note:** All endpoints require x402 payment. Requests without a valid payment
-> will receive HTTP 402. Use an x402-capable client (e.g. `@x402/fetch`) to
-> handle payment automatically.
+> will receive HTTP 402.
+
+## Handling x402 Payments
+
+### Option A — No-code: Coinbase Payments MCP
+
+The easiest way to pay. Install once and any MCP-compatible agent (Claude
+Desktop, Claude Code, Codex, Gemini) handles 402 responses automatically using
+a wallet tied to your email — no API keys or private keys needed.
+
+```sh
+npx @coinbase/payments-mcp install
+```
+
+After install, sign in with your email and fund your wallet with USDC on Base.
+The MCP server intercepts HTTP 402 responses and pays on your behalf.
+
+### Option B — Code: `@x402/fetch`
+
+Use `wrapFetchWithPayment` from `@x402/fetch` to handle x402 in your own code.
+See the examples in each section below.
+
+---
 
 ## Generate
 
