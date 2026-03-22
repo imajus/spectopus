@@ -26,7 +26,7 @@
 
 ## 6. End-to-end verification
 
-- [ ] 6.1 Test `fetchABI` via Blockscout inline
-- [ ] 6.2 Test `runResearch('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913')` — multi-step completes with JSON
-- [ ] 6.3 Test `runGenerate(researchResult)` — produces SKILL.md content
-- [ ] 6.4 Test full pipeline via HTTP API
+- [x] 6.1 Test `fetchABI` via Blockscout inline
+- [x] 6.2 Test `runResearch('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913')` — multi-step completes with JSON
+- [x] 6.3 Test `runGenerate(researchResult)` — produces SKILL.md content
+- [x] 6.4 Test full pipeline via HTTP API
