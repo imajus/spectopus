@@ -1,50 +1,30 @@
 import { Router } from 'express';
-import { paymentMiddleware, x402ResourceServer } from '@x402/express';
-import { ExactEvmScheme } from '@x402/evm/exact/server';
+import { paymentMiddleware } from 'x402-express';
 import { createThirdwebClient } from 'thirdweb';
 import { facilitator as createFacilitator } from 'thirdweb/x402';
-import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
 import { createPlaceholder, getSkill } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const NETWORK = 'eip155:8453'; // Base Mainnet
-
-function buildResourceServer() {
-  const client = createThirdwebClient({ secretKey: process.env.THIRDWEB_SECRET_KEY });
-  const serverWalletAddress = process.env.THIRDWEB_SERVER_WALLET_ADDRESS;
-  const f = createFacilitator({ client, serverWalletAddress });
-  return new x402ResourceServer(f).register(NETWORK, new ExactEvmScheme());
-}
 
 function buildPaymentMiddleware(payToAddress) {
+  const client = createThirdwebClient({ secretKey: process.env.THIRDWEB_SECRET_KEY });
+  const thirdwebFacilitator = createFacilitator({ client, serverWalletAddress: payToAddress });
   return paymentMiddleware(
+    payToAddress,
     {
       'POST /generate': {
-        accepts: {
-          scheme: 'exact',
-          price: '$0.10',
-          network: NETWORK,
-          payTo: payToAddress,
-        },
-        description: 'Generate an Agent Skill for a smart contract ($0.10 USDC)',
-        ...declareDiscoveryExtension({
-          bodyType: 'json',
-          input: { contractAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
-        }),
+        price: '$0.10',
+        network: 'base',
+        config: { description: 'Generate an Agent Skill for a smart contract ($0.10 USDC)' },
       },
-      'GET /:id': {
-        accepts: {
-          scheme: 'exact',
-          price: '$0.01',
-          network: NETWORK,
-          payTo: payToAddress,
-        },
-        description: 'Download a generated Agent Skill ($0.01 USDC)',
-        ...declareDiscoveryExtension({}),
+      'GET /[id]': {
+        price: '$0.01',
+        network: 'base',
+        config: { description: 'Download a generated Agent Skill ($0.01 USDC)' },
       },
     },
-    buildResourceServer(),
+    thirdwebFacilitator,
   );
 }
 

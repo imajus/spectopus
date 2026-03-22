@@ -23,24 +23,32 @@ Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Complet
 
 ## Tech Stack
 
-- Node.js + Express + x402 middleware (`@x402/express`, `@x402/evm`)
+- Node.js + Express + `x402-express` middleware (Coinbase v1, compatible with thirdweb)
 - thirdweb facilitator (`thirdweb/x402`) — requires `THIRDWEB_SECRET_KEY` + `THIRDWEB_SERVER_WALLET_ADDRESS`
 - Vercel AI SDK (`ai`) with swappable providers — currently `@ai-sdk/openai` (GPT-5)
 - S3-compatible object storage
 - Basescan/Etherscan API for ABI fetching
-- x402 Bazaar (`@x402/extensions`) for skill discovery
 
 ## x402 / Bazaar Notes
 
-- The Bazaar has no POST registration API — resources are auto-indexed by the facilitator during payment verification
-- `declareDiscoveryExtension()` in route configs embeds discovery metadata in 402 responses for the facilitator to catalog
+- The Bazaar has no POST registration API — resources are auto-indexed by the facilitator during payment settlement
 - thirdweb facilitator docs: https://portal.thirdweb.com/x402/facilitator — thirdweb x402 API: https://api.thirdweb.com/llms.txt
-- `ThirdwebX402Facilitator` is directly compatible with `x402ResourceServer` from `@x402/express` (no `HTTPFacilitatorClient` wrapper needed)
+- **Do NOT use `@x402/express` with the thirdweb facilitator** — `@x402/core` v2.7.0 uses x402Version:2 but thirdweb API returns x402Version:1 (incompatible)
+- Use `x402-express` (Coinbase v1) instead: `paymentMiddleware(payToAddress, routes, thirdwebFacilitator)`
+- `x402-express` route format: `{ price: '$0.10', network: 'base', config: { description: '...' } }` — NOT `{ accepts: {...} }`
+- `x402-express` dynamic path segments: use `[id]` not `:id` in route patterns (Express routing still uses `/:id`)
 
 ## Key Documentation
 
 - `docs/Requirements.md` — problem, personas, hackathon tracks, out-of-scope
 - `docs/Specification.md` — architecture, API schemas, pipeline details, deployment, artifact schemas (`agent.json`, `agent_log.json`)
+
+## External References
+
+- [x402 — Open Payment Standard](https://docs.x402.org/introduction.md)
+- [x402 Bazaar — Discovery Layer](https://docs.x402.org/extensions/bazaar.md)
+- [Agent Skills Specification](https://agentskills.io/llms.txt)
+- [Thirdweb Documentation](https://portal.thirdweb.com/llms.txt)
 
 ## Conventions
 

@@ -48,12 +48,6 @@ Agents could generate skills themselves, but it takes time, domain knowledge, an
 - Generated skills include gotchas, safety warnings, and tested code examples
 - Pay-per-use via x402 — no subscriptions, no accounts
 
-## External References
-
-- [x402 — Open Payment Standard](https://docs.x402.org/introduction.md)
-- [x402 Bazaar — Discovery Layer](https://docs.x402.org/extensions/bazaar.md)
-- [Agent Skills Specification](https://agentskills.io/llms.txt)
-
 ## Solution
 
 An HTTP API server that:
