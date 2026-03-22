@@ -9,7 +9,6 @@ The core value of Spectopus is the 3-stage pipeline that transforms a contract a
 - Implement Stage 3 (Validate): Spec validation (frontmatter check), ABI cross-check (LLM), safety check (LLM)
 - Implement retry logic: on validation failure, feed errors back to Stage 2 (max 2 retries)
 - Implement pipeline orchestrator that sequences stages and updates S3 status between stages
-- Implement execution logging for agent_log.jsonl
 
 ## Capabilities
 
@@ -17,7 +16,7 @@ The core value of Spectopus is the 3-stage pipeline that transforms a contract a
 - `research-stage`: AI agent loop that uses research tools to analyze a smart contract
 - `generate-stage`: LLM call that produces SKILL.md from research output
 - `validate-stage`: Multi-check validation with retry feedback loop
-- `pipeline-orchestrator`: Sequences the 3 stages, manages retries, updates S3 status, writes execution logs
+- `pipeline-orchestrator`: Sequences the 3 stages, manages retries, updates S3 status
 
 ### Modified Capabilities
 
@@ -25,7 +24,7 @@ The core value of Spectopus is the 3-stage pipeline that transforms a contract a
 
 ## Impact
 
-- New files: `src/pipeline/research.js`, `src/pipeline/generate.js`, `src/pipeline/validate.js`, `src/pipeline/index.js`, `src/pipeline/logger.js`
+- New files: `src/pipeline/research.js`, `src/pipeline/generate.js`, `src/pipeline/validate.js`, `src/pipeline/index.js`
 - New dependency: `@ai-sdk/openai` (LLM provider)
 - Depends on: research tools (CR2), storage layer (CR3)
 - New env vars: `OPENAI_API_KEY`

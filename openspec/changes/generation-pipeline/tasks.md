@@ -30,13 +30,7 @@
 - [x] 5.3 Implement retry loop: on validation failure, retry generate → validate (max 2 retries)
 - [x] 5.4 Implement failure handling: catch errors at any stage, call `markFailed`
 
-## 6. Execution Logging
-
-- [x] 6.1 Create `src/pipeline/logger.js` — accumulate stage data (timing, tool calls, decisions) during run
-- [x] 6.2 Append JSON log entry to `logs/agent_log.jsonl` on pipeline completion
-- [x] 6.3 Ensure `logs/` directory is created if missing
-
-## 7. Tests
+## 6. Tests
 
 - [x] 7.1 Test frontmatter validation with valid and invalid SKILL.md content
 - [x] 7.2 Test pipeline orchestrator retry logic with mocked stages

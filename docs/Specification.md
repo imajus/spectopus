@@ -55,4 +55,3 @@ Three async stages: **Research** (AI agent with tools) → **Generate** (LLM pro
 ## Hackathon Artifacts
 
 - `agent.json` — machine-readable agent manifest (ERC-8004 identity, tools, endpoints)
-- `logs/agent_log.jsonl` — structured execution logs per pipeline run
