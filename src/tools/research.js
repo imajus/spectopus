@@ -5,7 +5,7 @@ import { detectERCPatterns } from './erc.js';
 
 export const researchTools = {
   fetchABI: tool({
-    description: 'Fetch the ABI of a smart contract from Basescan/Etherscan',
+    description: 'Fetch the ABI of a smart contract from Basescan/Etherscan, with Blockscout as fallback',
     parameters: z.object({
       contractAddress: z.string().describe('The contract address to fetch ABI for'),
       chainId: z.number().describe('The chain ID (8453 for Base Mainnet, 84532 for Base Sepolia)'),
@@ -16,7 +16,7 @@ export const researchTools = {
   }),
 
   fetchSourceCode: tool({
-    description: 'Fetch the verified source code of a smart contract from Basescan/Etherscan',
+    description: 'Fetch the verified source code of a smart contract from Basescan/Etherscan, with Blockscout as fallback',
     parameters: z.object({
       contractAddress: z.string().describe('The contract address to fetch source code for'),
       chainId: z.number().describe('The chain ID (8453 for Base Mainnet, 84532 for Base Sepolia)'),
