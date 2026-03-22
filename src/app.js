@@ -1,4 +1,5 @@
 import express from 'express';
+import { createSkillsRouter } from './routes/skills.js';
 
 export function createApp() {
   const app = express();
@@ -7,6 +8,8 @@ export function createApp() {
   app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
   });
+
+  app.use('/skills', createSkillsRouter());
 
   return app;
 }
