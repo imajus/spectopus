@@ -42,7 +42,7 @@ Start the async pipeline that produces a SKILL.md for a smart contract.
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
-  "url": "https://spectopus.example.com/skills/550e8400-e29b-41d4-a716-446655440000"
+  "url": "https://spectopus.majus.app/skills/550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -58,7 +58,7 @@ const client = new x402Client();
 registerExactEvmScheme(client, { signer });
 const fetchWithPayment = wrapFetchWithPayment(fetch, client);
 
-const res = await fetchWithPayment('https://spectopus.example.com/skills/generate', {
+const res = await fetchWithPayment('https://spectopus.majus.app/skills/generate', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -90,7 +90,7 @@ const bazaarClient = withBazaar(facilitatorClient);
 const resources = await bazaarClient.extensions.discovery.listResources({ type: 'http' });
 
 // Filter for Spectopus skill endpoints
-const BASE_URL = 'https://spectopus.example.com';
+const BASE_URL = 'https://spectopus.majus.app';
 const skills = (resources.items ?? []).filter(r =>
   r.resource?.startsWith(`${BASE_URL}/skills/`)
 );
@@ -145,7 +145,7 @@ async function pollSkill(skillUrl, maxAttempts = 20, intervalMs = 5000) {
 }
 
 const skillId = '550e8400-e29b-41d4-a716-446655440000';
-const skillUrl = `https://spectopus.example.com/skills/${skillId}`;
+const skillUrl = `https://spectopus.majus.app/skills/${skillId}`;
 
 const content = await pollSkill(skillUrl);
 
