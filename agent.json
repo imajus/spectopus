@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "AI-powered agent skill generator for smart contracts. Given a contract address, Spectopus researches the ABI, detects ERC patterns, and generates a SKILL.md file that other agents can use to interact with the contract.",
   "operator": {
-    "wallet": "0x0000000000000000000000000000000000000000",
+    "wallet": "0xD5D197CB66f0696Cb06506D10C0f0af5A0078B21",
     "contact": "https://github.com/imajus/spectopus"
   },
   "identity": {
