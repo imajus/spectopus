@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "v0-dev": {
+      "source": "vercel-labs/vercel-plugin",
+      "sourceType": "github",
+      "computedHash": "bc8534a09bc2e1002efab1ed10de2eca651d70f35e7b10bf03bf9f8ead933cc6"
+    }
+  }
+}
