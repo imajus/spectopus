@@ -15,8 +15,8 @@ metadata:
 # Spectopus
 
 Spectopus generates Agent Skills (SKILL.md files) from smart contract addresses
-on Base Mainnet. Provide a contract address and chain ID; Spectopus researches
-the contract, generates a conformant skill file, and stores it for download.
+on Base Mainnet. Provide a contract address; Spectopus researches the contract,
+generates a conformant skill file, and stores it for download.
 
 > **Note:** All endpoints require x402 payment. Requests without a valid payment
 > will receive HTTP 402. Use an x402-capable client (e.g. `@x402/fetch`) to
@@ -35,7 +35,6 @@ Start the async pipeline that produces a SKILL.md for a smart contract.
 | Field             | Type     | Required | Description                                         |
 |-------------------|----------|----------|-----------------------------------------------------|
 | `contractAddress` | `string` | Yes      | EVM contract address (0x…)                          |
-| `chainId`         | `number` | Yes      | EIP-155 chain ID (e.g. `8453` for Base Mainnet)     |
 | `message`         | `string` | No       | Optional hint for the generator (e.g. "focus on swap functions") |
 
 ### Response body
@@ -64,7 +63,6 @@ const res = await fetchWithPayment('https://spectopus.example.com/skills/generat
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     contractAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-    chainId: 8453,
   }),
 });
 
