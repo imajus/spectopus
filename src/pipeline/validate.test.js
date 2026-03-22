@@ -1,14 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { checkFrontmatter, runValidate } from './validate.js';
-import { generateText } from 'ai';
 
-// Mock the AI model to avoid real API calls
+// Mock the model to avoid real API calls
 vi.mock('./model.js', () => ({
-  model: 'mock-model',
-}));
-
-vi.mock('ai', () => ({
-  generateText: vi.fn().mockResolvedValue({ text: '{ "valid": true, "errors": [] }' }),
+  model: {
+    invoke: vi.fn().mockResolvedValue({ content: '{ "valid": true, "errors": [] }' }),
+  },
 }));
 
 const VALID_SKILL = `---
@@ -108,9 +105,10 @@ describe('checkFrontmatter', () => {
 });
 
 describe('runValidate', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-    generateText.mockResolvedValue({ text: '{ "valid": true, "errors": [] }' });
+    const { model } = await import('./model.js');
+    model.invoke.mockResolvedValue({ content: '{ "valid": true, "errors": [] }' });
   });
 
   it('returns valid: true when all checks pass', async () => {

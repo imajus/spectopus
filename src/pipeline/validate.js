@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { generateText } from 'ai';
+import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { model } from './model.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -56,10 +56,9 @@ export async function checkABICrossCheck(skillContent, abi) {
     return { valid: true, errors: [] }; // Can't check without ABI
   }
 
-  const { text } = await generateText({
-    model,
-    system: ABI_SYSTEM_PROMPT,
-    prompt: `Review the following SKILL.md code examples against the contract ABI.
+  const response = await model.invoke([
+    new SystemMessage(ABI_SYSTEM_PROMPT),
+    new HumanMessage(`Review the following SKILL.md code examples against the contract ABI.
 
 ABI:
 ${JSON.stringify(abi, null, 2)}
@@ -73,9 +72,10 @@ Check that:
 3. Return types are used correctly
 
 Respond with JSON: { "valid": boolean, "errors": string[] }
-If valid, errors should be an empty array.`,
-  });
+If valid, errors should be an empty array.`),
+  ]);
 
+  const text = response.content;
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return { valid: true, errors: [] }; // Fail open if LLM response is unparseable
 
@@ -104,10 +104,9 @@ export async function checkSafety(skillContent, abi) {
     return { valid: true, errors: [] }; // Nothing to check
   }
 
-  const { text } = await generateText({
-    model,
-    system: SAFETY_SYSTEM_PROMPT,
-    prompt: `Review the following SKILL.md for safety warnings.
+  const response = await model.invoke([
+    new SystemMessage(SAFETY_SYSTEM_PROMPT),
+    new HumanMessage(`Review the following SKILL.md for safety warnings.
 
 ${payableFunctions.length > 0 ? `Payable functions that need ETH value warnings: ${payableFunctions.join(', ')}` : ''}
 ${hasApprovalPattern ? 'Contract has approval functions (approve/setApprovalForAll) that require approval-before-transfer warnings.' : ''}
@@ -120,9 +119,10 @@ ${payableFunctions.length > 0 ? '- Payable functions (user must send ETH value)'
 ${hasApprovalPattern ? '- Approval patterns (approve before transferFrom, risks of unlimited approvals)' : ''}
 
 Respond with JSON: { "valid": boolean, "errors": string[] }
-If valid, errors should be an empty array.`,
-  });
+If valid, errors should be an empty array.`),
+  ]);
 
+  const text = response.content;
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return { valid: true, errors: [] };
 
