@@ -1,9 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.js';
 
-// Tests run without WALLET_PRIVATE_KEY, so x402 middleware is bypassed.
-// This lets us verify route logic in isolation.
+// Mock storage so tests don't need a real S3 connection.
+// Tests run without WALLET_PRIVATE_KEY, so x402 middleware is also bypassed.
+vi.mock('../storage.js', () => ({
+  createPlaceholder: vi.fn().mockResolvedValue(undefined),
+  getSkill: vi.fn().mockResolvedValue(null),
+}));
+
+import { createPlaceholder, getSkill } from '../storage.js';
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe('POST /skills/generate', () => {
   it('returns id and url for a valid request', async () => {
@@ -30,15 +40,23 @@ describe('POST /skills/generate', () => {
     expect(res.body.url).toContain(res.body.id);
   });
 
+  it('creates an S3 placeholder with the skill id and metadata', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .post('/skills/generate')
+      .send({ contractAddress: '0xabc', chainId: 8453 });
+
+    expect(createPlaceholder).toHaveBeenCalledWith(res.body.id, {
+      contractAddress: '0xabc',
+      chainId: 8453,
+    });
+  });
+
   it('returns unique ids for separate requests', async () => {
     const app = createApp();
     const [r1, r2] = await Promise.all([
-      request(app)
-        .post('/skills/generate')
-        .send({ contractAddress: '0xabc', chainId: 8453 }),
-      request(app)
-        .post('/skills/generate')
-        .send({ contractAddress: '0xabc', chainId: 8453 }),
+      request(app).post('/skills/generate').send({ contractAddress: '0xabc', chainId: 8453 }),
+      request(app).post('/skills/generate').send({ contractAddress: '0xabc', chainId: 8453 }),
     ]);
 
     expect(r1.body.id).not.toBe(r2.body.id);
@@ -46,9 +64,7 @@ describe('POST /skills/generate', () => {
 
   it('returns 400 when contractAddress is missing', async () => {
     const app = createApp();
-    const res = await request(app)
-      .post('/skills/generate')
-      .send({ chainId: 8453 });
+    const res = await request(app).post('/skills/generate').send({ chainId: 8453 });
 
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('error');
@@ -56,9 +72,7 @@ describe('POST /skills/generate', () => {
 
   it('returns 400 when chainId is missing', async () => {
     const app = createApp();
-    const res = await request(app)
-      .post('/skills/generate')
-      .send({ contractAddress: '0xabc' });
+    const res = await request(app).post('/skills/generate').send({ contractAddress: '0xabc' });
 
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('error');
@@ -81,6 +95,25 @@ describe('GET /skills/:id', () => {
     const res = await request(app).get('/skills/00000000-0000-4000-8000-000000000000');
 
     expect(res.status).toBe(404);
+  });
+
+  it('returns skill content as text/markdown when found', async () => {
+    getSkill.mockResolvedValueOnce('---\nstatus: "ready"\n---\n\n# My Skill\n');
+    const app = createApp();
+    const res = await request(app).get('/skills/00000000-0000-4000-8000-000000000001');
+
+    expect(res.status).toBe(200);
+    expect(res.type).toMatch(/markdown/);
+    expect(res.text).toContain('# My Skill');
+  });
+
+  it('returns in-progress placeholder content when skill is generating', async () => {
+    getSkill.mockResolvedValueOnce('---\nstatus: "generating"\nstage: "research"\n---\n\n# Skill generation in progress\n');
+    const app = createApp();
+    const res = await request(app).get('/skills/00000000-0000-4000-8000-000000000002');
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('generating');
   });
 });
 

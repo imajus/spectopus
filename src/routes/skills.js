@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { paymentMiddleware, x402ResourceServer } from '@x402/express';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
 import { privateKeyToAccount } from 'viem/accounts';
+import { createPlaceholder, getSkill } from '../storage.js';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const FACILITATOR_URL = 'https://x402.org/facilitator';
@@ -57,8 +58,7 @@ export function createSkillsRouter() {
     const id = crypto.randomUUID();
     const url = `${BASE_URL}/skills/${id}`;
 
-    // TODO: Create S3 placeholder once storage layer is implemented
-    // await createSkillPlaceholder(id, { contractAddress, chainId, message });
+    await createPlaceholder(id, { contractAddress, chainId });
 
     // TODO: Start generation pipeline async (fire-and-forget) once pipeline is implemented
     // runPipeline(id, contractAddress, chainId, message).catch(err => {
@@ -72,12 +72,9 @@ export function createSkillsRouter() {
   router.get('/:id', async (req, res) => {
     const { id } = req.params;
 
-    // TODO: Fetch skill content from S3 once storage layer is implemented
-    // const skill = await getSkill(id);
-    // if (!skill) return res.status(404).json({ error: 'Skill not found' });
-    // return res.type('text/markdown').send(skill);
-
-    return res.status(404).json({ error: 'Skill not found' });
+    const skill = await getSkill(id);
+    if (!skill) return res.status(404).json({ error: 'Skill not found' });
+    return res.type('text/markdown').send(skill);
   });
 
   return router;
