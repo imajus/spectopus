@@ -56,22 +56,18 @@ export async function registerGenerateEndpoint() {
  * Register a GET /skills/:id endpoint on x402 Bazaar after successful generation.
  *
  * @param {string} id - Skill UUID
- * @param {{ contractAddress: string, chainId: number, description?: string }} metadata
+ * @param {{ contractAddress: string }} metadata
  */
 export async function registerSkillEndpoint(id, metadata) {
   const bazaarUrl = getBazaarUrl();
   const baseUrl = getBaseUrl();
-
-  const description =
-    metadata.description ||
-    `Agent Skill for contract ${metadata.contractAddress} on chain ${metadata.chainId} ($0.01 USDC)`;
 
   const response = await fetch(`${bazaarUrl}/discovery/resources`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       url: `${baseUrl}/skills/${id}`,
-      description,
+      description: `Agent Skill for contract ${metadata.contractAddress} on Base Mainnet ($0.01 USDC)`,
       input: {
         type: 'http',
         method: 'GET',
@@ -79,7 +75,6 @@ export async function registerSkillEndpoint(id, metadata) {
       metadata: {
         spectopusSkillId: id,
         contractAddress: metadata.contractAddress,
-        chainId: metadata.chainId,
       },
     }),
   });
