@@ -6,7 +6,7 @@
 ## 2. Skills Router
 
 - [x] 2.1 Create `src/routes/skills.js` with Express router
-- [x] 2.2 Implement `POST /generate` — validate request body (contractAddress, chainId required), generate UUID, create S3 placeholder, fire pipeline async, return `{ id, url }` (pipeline stubbed as TODO — awaiting pipeline layer)
+- [x] 2.2 Implement `POST /generate` — validate request body (contractAddress, chainId required), generate UUID, create S3 placeholder, fire pipeline async, return `{ id, url }`
 - [x] 2.3 Implement `GET /:id` — fetch from S3 via `getSkill`, return content as text/markdown or 404
 
 ## 3. x402 Middleware Integration
