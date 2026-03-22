@@ -57,6 +57,7 @@ export function registerSkillsRoutes(app) {
 
     const skill = await getSkill(id);
     if (!skill) return res.status(404).json({ error: 'Skill not found' });
-    return res.type('text/markdown').send(skill);
+    const status = skill.status === 'generating' ? 'processing' : skill.status;
+    return res.json({ status, content: skill.content });
   });
 }

@@ -39,35 +39,49 @@ async function getStorage() {
 }
 
 describe('createPlaceholder', () => {
-  it('produces correct frontmatter', async () => {
+  it('produces correct JSON object', async () => {
     const { createPlaceholder, getSkill } = await getStorage();
     await createPlaceholder('abc123', { contractAddress: '0xDEAD' });
-    const content = await getSkill('abc123');
-    expect(content).toContain('status: "generating"');
-    expect(content).toContain('stage: "research"');
-    expect(content).toContain('contractAddress: "0xDEAD"');
-    expect(content).toContain('chainId: 8453');
+    const obj = await getSkill('abc123');
+    expect(obj).toMatchObject({
+      id: 'abc123',
+      status: 'generating',
+      stage: 'research',
+      contractAddress: '0xDEAD',
+      chainId: 8453,
+      content: '',
+    });
   });
 });
 
 describe('updateStage', () => {
-  it('modifies frontmatter stage field', async () => {
+  it('modifies stage field', async () => {
     const { createPlaceholder, updateStage, getSkill } = await getStorage();
     await createPlaceholder('abc123', { contractAddress: '0xDEAD' });
     await updateStage('abc123', 'generate');
-    const content = await getSkill('abc123');
-    expect(content).toContain('stage: "generate"');
-    expect(content).not.toContain('stage: "research"');
+    const obj = await getSkill('abc123');
+    expect(obj.stage).toBe('generate');
   });
 });
 
 describe('markFailed', () => {
-  it('sets status to failed and includes error in body', async () => {
+  it('sets status to failed and stores error in content', async () => {
     const { createPlaceholder, markFailed, getSkill } = await getStorage();
     await createPlaceholder('abc123', { contractAddress: '0xDEAD' });
     await markFailed('abc123', 'Validation failed after 2 retries');
-    const content = await getSkill('abc123');
-    expect(content).toContain('status: "failed"');
-    expect(content).toContain('Validation failed after 2 retries');
+    const obj = await getSkill('abc123');
+    expect(obj.status).toBe('failed');
+    expect(obj.content).toBe('Validation failed after 2 retries');
+  });
+});
+
+describe('markReady', () => {
+  it('sets status to ready and stores skill content', async () => {
+    const { createPlaceholder, markReady, getSkill } = await getStorage();
+    await createPlaceholder('abc123', { contractAddress: '0xDEAD' });
+    await markReady('abc123', '# My Skill\n');
+    const obj = await getSkill('abc123');
+    expect(obj.status).toBe('ready');
+    expect(obj.content).toBe('# My Skill\n');
   });
 });

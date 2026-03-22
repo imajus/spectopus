@@ -18,14 +18,14 @@ function getClient() {
 }
 
 const bucket = () => process.env.S3_BUCKET;
-const key = (id) => `skills/${id}.md`;
+const key = (id) => `skills/${id}.json`;
 
-export async function putSkill(id, content) {
+async function putSkillObject(id, obj) {
   await getClient().send(new PutObjectCommand({
     Bucket: bucket(),
     Key: key(id),
-    Body: content,
-    ContentType: 'text/markdown',
+    Body: JSON.stringify(obj),
+    ContentType: 'application/json',
   }));
 }
 
@@ -35,7 +35,8 @@ export async function getSkill(id) {
       Bucket: bucket(),
       Key: key(id),
     }));
-    return await response.Body.transformToString();
+    const text = await response.Body.transformToString();
+    return JSON.parse(text);
   } catch (err) {
     if (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404) {
       return null;
@@ -45,32 +46,30 @@ export async function getSkill(id) {
 }
 
 export async function createPlaceholder(id, metadata) {
-  const frontmatter = [
-    '---',
-    `status: "generating"`,
-    `stage: "research"`,
-    `contractAddress: "${metadata.contractAddress}"`,
-    `chainId: 8453`,
-    '---',
-    '',
-    '# Skill generation in progress',
-    '',
-  ].join('\n');
-  await putSkill(id, frontmatter);
+  await putSkillObject(id, {
+    id,
+    status: 'generating',
+    stage: 'research',
+    contractAddress: metadata.contractAddress,
+    chainId: 8453,
+    content: '',
+  });
 }
 
 export async function updateStage(id, stage) {
-  const content = await getSkill(id);
-  if (!content) throw new Error(`Skill ${id} not found`);
-  const updated = content.replace(/^stage: ".+"$/m, `stage: "${stage}"`);
-  await putSkill(id, updated);
+  const obj = await getSkill(id);
+  if (!obj) throw new Error(`Skill ${id} not found`);
+  await putSkillObject(id, { ...obj, stage });
 }
 
 export async function markFailed(id, error) {
-  const content = await getSkill(id);
-  const base = content
-    ? content.replace(/^status: ".+"$/m, 'status: "failed"')
-    : `---\nstatus: "failed"\n---\n`;
-  const withError = base.trimEnd() + `\n\n## Error\n\n${error}\n`;
-  await putSkill(id, withError);
+  const obj = await getSkill(id);
+  const base = obj ?? { id, chainId: 8453, contractAddress: '', content: '' };
+  await putSkillObject(id, { ...base, status: 'failed', content: error });
+}
+
+export async function markReady(id, skillContent) {
+  const obj = await getSkill(id);
+  if (!obj) throw new Error(`Skill ${id} not found`);
+  await putSkillObject(id, { ...obj, status: 'ready', content: skillContent });
 }

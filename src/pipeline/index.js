@@ -1,4 +1,4 @@
-import { updateStage, putSkill, markFailed } from '../storage.js';
+import { updateStage, markReady, markFailed } from '../storage.js';
 import { runResearch } from './research.js';
 import { runGenerate } from './generate.js';
 import { runValidate } from './validate.js';
@@ -51,8 +51,7 @@ export async function runPipeline(skillId, contractAddress, message) {
     }
 
     // Store final skill with status: ready
-    const finalContent = markReady(skillContent);
-    await putSkill(skillId, finalContent);
+    await markReady(skillId, skillContent);
 
   } catch (err) {
     await markFailed(skillId, err.message);
@@ -60,16 +59,3 @@ export async function runPipeline(skillId, contractAddress, message) {
   }
 }
 
-/**
- * Update the status frontmatter field to "ready" in a SKILL.md.
- */
-function markReady(content) {
-  // If frontmatter exists, add/update status; otherwise prepend it
-  if (/^---\n/.test(content)) {
-    if (/^status:/m.test(content)) {
-      return content.replace(/^status:.*$/m, 'status: "ready"');
-    }
-    return content.replace(/^---\n/, '---\nstatus: "ready"\n');
-  }
-  return content;
-}

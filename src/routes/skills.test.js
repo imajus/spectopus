@@ -102,23 +102,23 @@ describe('GET /skills/:id', () => {
     expect(res.status).toBe(404);
   });
 
-  it('returns skill content as text/markdown when found', async () => {
-    getSkill.mockResolvedValueOnce('---\nstatus: "ready"\n---\n\n# My Skill\n');
+  it('returns skill content as JSON when found', async () => {
+    getSkill.mockResolvedValueOnce({ status: 'ready', content: '# My Skill\n' });
     const app = createApp();
     const res = await request(app).get('/skills/00000000-0000-4000-8000-000000000001');
 
     expect(res.status).toBe(200);
-    expect(res.type).toMatch(/markdown/);
-    expect(res.text).toContain('# My Skill');
+    expect(res.type).toMatch(/json/);
+    expect(res.body).toMatchObject({ status: 'ready', content: '# My Skill\n' });
   });
 
-  it('returns in-progress placeholder content when skill is generating', async () => {
-    getSkill.mockResolvedValueOnce('---\nstatus: "generating"\nstage: "research"\n---\n\n# Skill generation in progress\n');
+  it('returns processing status when skill is generating', async () => {
+    getSkill.mockResolvedValueOnce({ status: 'generating', stage: 'research', content: '' });
     const app = createApp();
     const res = await request(app).get('/skills/00000000-0000-4000-8000-000000000002');
 
     expect(res.status).toBe(200);
-    expect(res.text).toContain('generating');
+    expect(res.body).toMatchObject({ status: 'processing', content: '' });
   });
 });
 

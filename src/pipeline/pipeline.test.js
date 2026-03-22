@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock all dependencies before importing the module under test
 vi.mock('../storage.js', () => ({
   updateStage: vi.fn().mockResolvedValue(undefined),
-  putSkill: vi.fn().mockResolvedValue(undefined),
+  markReady: vi.fn().mockResolvedValue(undefined),
   markFailed: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -30,7 +30,7 @@ vi.mock('./logger.js', () => ({
 }));
 
 import { runPipeline } from './index.js';
-import { updateStage, putSkill, markFailed } from '../storage.js';
+import { updateStage, markReady, markFailed } from '../storage.js';
 import { runResearch } from './research.js';
 import { runGenerate } from './generate.js';
 import { runValidate } from './validate.js';
@@ -79,7 +79,7 @@ describe('runPipeline', () => {
   it('stores the final skill with status ready', async () => {
     await runPipeline('skill-1', '0x1234');
 
-    expect(putSkill).toHaveBeenCalledWith('skill-1', expect.stringContaining('status: "ready"'));
+    expect(markReady).toHaveBeenCalledWith('skill-1', VALID_SKILL_MD);
   });
 
   it('retries generate+validate on validation failure, up to MAX_RETRIES', async () => {
@@ -96,7 +96,7 @@ describe('runPipeline', () => {
     expect(runValidate).toHaveBeenCalledTimes(2);
     // Second generate call should include the validation errors
     expect(runGenerate).toHaveBeenNthCalledWith(2, MOCK_RESEARCH, ['Missing warning for payable function']);
-    expect(putSkill).toHaveBeenCalledWith('skill-1', expect.stringContaining('status: "ready"'));
+    expect(markReady).toHaveBeenCalledWith('skill-1', VALID_SKILL_MD);
   });
 
   it('marks skill as failed after max retries exceeded', async () => {
@@ -104,7 +104,7 @@ describe('runPipeline', () => {
 
     await expect(runPipeline('skill-1', '0x1234')).rejects.toThrow();
     expect(markFailed).toHaveBeenCalledWith('skill-1', expect.stringContaining('Validation failed'));
-    expect(putSkill).not.toHaveBeenCalled();
+    expect(markReady).not.toHaveBeenCalled();
   });
 
   it('marks skill as failed when research stage throws', async () => {
