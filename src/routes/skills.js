@@ -1,16 +1,19 @@
 import { Router } from 'express';
 import { paymentMiddleware, x402ResourceServer } from '@x402/express';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
+import { HTTPFacilitatorClient } from '@x402/core/http';
+import { facilitator } from '@coinbase/x402';
 import { privateKeyToAccount } from 'viem/accounts';
+import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
 import { createPlaceholder, getSkill } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const FACILITATOR_URL = 'https://x402.org/facilitator';
 const NETWORK = 'eip155:8453'; // Base Mainnet
 
 function buildResourceServer() {
-  return new x402ResourceServer().register(NETWORK, new ExactEvmScheme());
+  const facilitatorClient = new HTTPFacilitatorClient(facilitator);
+  return new x402ResourceServer(facilitatorClient).register(NETWORK, new ExactEvmScheme());
 }
 
 function buildPaymentMiddleware(payToAddress) {
@@ -24,6 +27,10 @@ function buildPaymentMiddleware(payToAddress) {
           payTo: payToAddress,
         },
         description: 'Generate an Agent Skill for a smart contract ($0.10 USDC)',
+        ...declareDiscoveryExtension({
+          bodyType: 'json',
+          input: { contractAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
+        }),
       },
       'GET /:id': {
         accepts: {
@@ -33,6 +40,7 @@ function buildPaymentMiddleware(payToAddress) {
           payTo: payToAddress,
         },
         description: 'Download a generated Agent Skill ($0.01 USDC)',
+        ...declareDiscoveryExtension({}),
       },
     },
     buildResourceServer(),

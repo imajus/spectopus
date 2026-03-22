@@ -19,15 +19,23 @@ Express server with two x402-paywalled endpoints:
 2. **Generate** — LLM produces SKILL.md following Agent Skills spec
 3. **Validate** — spec validation + ABI cross-check + safety check; retries Stage 2 on failure (max 2 loops)
 
-Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Completed skills are registered on x402 Bazaar.
+Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Completed skills are auto-indexed on x402 Bazaar via the CDP facilitator during payment settlement.
 
 ## Tech Stack
 
 - Node.js + Express + x402 middleware (`@x402/express`, `@x402/evm`)
+- CDP facilitator (`@coinbase/x402`) — Base Mainnet requires CDP API keys (`CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`)
 - Vercel AI SDK (`ai`) with swappable providers — currently `@ai-sdk/openai` (GPT-5)
 - S3-compatible object storage
 - Basescan/Etherscan API for ABI fetching
 - x402 Bazaar (`@x402/extensions`) for skill discovery
+
+## x402 / Bazaar Notes
+
+- The Bazaar has no POST registration API — resources are auto-indexed by the facilitator during payment verification
+- `declareDiscoveryExtension()` in route configs embeds discovery metadata in 402 responses for the facilitator to catalog
+- `https://x402.org/facilitator` only supports testnets; Base Mainnet requires CDP facilitator
+- x402 docs: https://docs.x402.org/llms.txt — CDP seller guide: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers.md
 
 ## Key Documentation
 

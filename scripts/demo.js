@@ -10,37 +10,34 @@
  *      - Skills cost $0.01 USDC each
  *      - Fund via Coinbase or bridge USDC to Base Mainnet (chain ID: 8453)
  *   4. Set environment variables:
- *        WALLET_PRIVATE_KEY=0x...   # Your funded wallet private key
- *        BAZAAR_URL=https://bazaar.x402.org  # or override for local dev
- *        BASE_URL=http://localhost:3000       # Spectopus server URL
+ *        WALLET_PRIVATE_KEY=0x...         # Your funded wallet private key
+ *        CDP_API_KEY_ID=...               # Coinbase Developer Platform API key
+ *        CDP_API_KEY_SECRET=...           # Coinbase Developer Platform API secret
+ *        BASE_URL=http://localhost:3000   # Spectopus server URL
  *
  * Usage:
  *   node scripts/demo.js
  */
 
 import 'dotenv/config';
-import { createWalletClient, http, publicActions } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { base } from 'viem/chains';
-import { HTTPFacilitatorClient, x402HTTPClient } from '@x402/core/http';
-import { x402Client } from '@x402/core/client';
-import { ExactEvmScheme } from '@x402/evm/exact/client';
+import { HTTPFacilitatorClient } from '@x402/core/http';
+import { x402Client, wrapFetchWithPayment } from '@x402/fetch';
+import { registerExactEvmScheme } from '@x402/evm/exact/client';
+import { facilitator } from '@coinbase/x402';
 import { withBazaar } from '@x402/extensions/bazaar';
 
-const BAZAAR_URL = process.env.BAZAAR_URL || 'https://bazaar.x402.org';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const NETWORK = 'eip155:8453'; // Base Mainnet
 
 async function main() {
   console.log('=== Spectopus Demo ===\n');
-  console.log(`Bazaar: ${BAZAAR_URL}`);
   console.log(`Server: ${BASE_URL}\n`);
 
   // ── Step 1: Discover Spectopus skills on Bazaar ──────────────────────────────
   console.log('Step 1: Discovering Spectopus skills on x402 Bazaar...\n');
 
-  const facilitator = new HTTPFacilitatorClient({ url: BAZAAR_URL });
-  const bazaarClient = withBazaar(facilitator);
+  const facilitatorClient = new HTTPFacilitatorClient(facilitator);
+  const bazaarClient = withBazaar(facilitatorClient);
 
   let resources;
   try {
@@ -50,19 +47,18 @@ async function main() {
     process.exit(1);
   }
 
-  // Filter for Spectopus skill endpoints using the custom marker set at registration time
-  const skillResources = (resources.resources ?? resources).filter(
-    r => r.metadata?.spectopusSkillId != null,
-  );
+  // Filter for Spectopus skill endpoints by matching our server's BASE_URL
+  const allItems = resources.items ?? [];
+  const skillResources = allItems.filter(r => r.resource?.startsWith(`${BASE_URL}/skills/`));
 
   if (skillResources.length === 0) {
     console.log('No Spectopus skills found on Bazaar.');
     console.log('Generate a skill first: POST /skills/generate');
-    console.log('\nShowing all available resources:\n');
-    const all = resources.resources ?? resources;
-    all.forEach((r, i) => {
-      console.log(`  [${i + 1}] ${r.url ?? r.resourceUrl}`);
-      if (r.description) console.log(`       ${r.description}`);
+    console.debug('\nShowing all available resources:\n');
+    allItems.forEach((r, i) => {
+      console.log(`  [${i + 1}] ${r.resource}`);
+      const desc = r.accepts?.[0]?.description;
+      if (desc) console.log(`       ${desc}`);
     });
     return;
   }
@@ -70,21 +66,15 @@ async function main() {
   // ── Step 2: Print available skills ───────────────────────────────────────────
   console.log(`Found ${skillResources.length} Spectopus skill(s):\n`);
   skillResources.forEach((r, i) => {
-    const url = r.url ?? r.resourceUrl;
-    const desc = r.description ?? '(no description)';
-    const price = r.price ?? r.accepts?.[0]?.price ?? '$0.01 USDC';
-    const contract = r.metadata?.contractAddress ?? r.contractAddress ?? 'unknown';
-    const chainId = r.metadata?.chainId ?? r.chainId ?? 'unknown';
-
-    console.log(`  [${i + 1}] ${url}`);
+    const desc = r.accepts?.[0]?.description ?? '(no description)';
+    console.log(`  [${i + 1}] ${r.resource}`);
     console.log(`       ${desc}`);
-    console.log(`       Contract: ${contract}  Chain: ${chainId}  Price: ${price}`);
     console.log();
   });
 
   // ── Step 3: Purchase and download the first skill ────────────────────────────
   const target = skillResources[0];
-  const targetUrl = target.url ?? target.resourceUrl;
+  const targetUrl = target.resource;
   console.log(`Step 2: Purchasing skill: ${targetUrl}\n`);
 
   const privateKey = process.env.WALLET_PRIVATE_KEY;
@@ -94,42 +84,14 @@ async function main() {
     return;
   }
 
-  // Build viem wallet client for signing
-  const account = privateKeyToAccount(privateKey);
-  const walletClient = createWalletClient({
-    account,
-    chain: base,
-    transport: http(),
-  }).extend(publicActions);
+  const signer = privateKeyToAccount(privateKey);
+  console.log(`Paying from wallet: ${signer.address}\n`);
 
-  console.log(`Paying from wallet: ${account.address}\n`);
+  const client = new x402Client();
+  registerExactEvmScheme(client, { signer });
+  const fetchWithPayment = wrapFetchWithPayment(fetch, client);
 
-  // Build x402 client with ExactEvmScheme
-  const paymentClient = new x402Client();
-  const evmScheme = new ExactEvmScheme(walletClient);
-  paymentClient.register(NETWORK, evmScheme);
-
-  const httpClient = new x402HTTPClient(paymentClient);
-
-  // Step 1: Initial fetch (expect 402)
-  let response = await fetch(targetUrl);
-
-  if (response.status === 402) {
-    console.log('Server returned 402 Payment Required — paying now...\n');
-
-    // Extract payment requirements
-    const paymentRequired = httpClient.getPaymentRequiredResponse(
-      name => response.headers.get(name),
-      await response.clone().json().catch(() => null),
-    );
-
-    // Create payment payload
-    const paymentPayload = await httpClient.createPaymentPayload(paymentRequired);
-
-    // Retry with payment header
-    const paymentHeaders = httpClient.encodePaymentSignatureHeader(paymentPayload);
-    response = await fetch(targetUrl, { headers: paymentHeaders });
-  }
+  const response = await fetchWithPayment(targetUrl);
 
   if (!response.ok) {
     console.error(`Failed to fetch skill: ${response.status} ${response.statusText}`);
