@@ -18,56 +18,88 @@ Spectopus generates Agent Skills (SKILL.md files) from smart contract addresses
 on Base Mainnet. Provide a contract address; Spectopus researches the contract,
 generates a conformant skill file, and stores it for download.
 
-> **Note:** All endpoints require x402 payment. Requests without a valid payment
-> will receive HTTP 402.
+All endpoints require x402 payment (HTTP 402). Choose an approach below.
 
-## Handling x402 Payments
+---
 
-### Option A — No-code: Coinbase Payments MCP
+## Using Payments MCP (no-code)
 
-The easiest way to pay. Install once and any MCP-compatible agent (Claude
-Desktop, Claude Code, Codex, Gemini) handles 402 responses automatically using
-a wallet tied to your email — no API keys or private keys needed.
+Install [Coinbase Payments MCP](https://docs.cdp.coinbase.com/payments-mcp/welcome.md)
+once and your agent handles all x402 payments automatically — no API keys,
+no private keys, just email sign-in.
 
 ```sh
 npx @coinbase/payments-mcp install
 ```
 
-After install, sign in with your email and fund your wallet with USDC on Base.
-The MCP server intercepts HTTP 402 responses and pays on your behalf.
+### Generate
 
-### Option B — Code: `@x402/fetch`
+Ask your agent to generate a skill for a contract address. The agent posts to
+`POST https://spectopus.majus.app/skills/generate`, pays the $0.10 USDC fee,
+and returns the skill ID and URL.
 
-Use `wrapFetchWithPayment` from `@x402/fetch` to handle x402 in your own code.
-See the examples in each section below.
+```
+Generate a Spectopus skill for contract 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+```
+
+Optional — add a focus hint:
+
+```
+Generate a Spectopus skill for 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, focus on transfer functions
+```
+
+### Explore
+
+Ask your agent to discover generated skills indexed on x402 Bazaar.
+
+```
+List available Spectopus skills on x402 Bazaar
+```
+
+```
+What x402 services are available at spectopus.majus.app?
+```
+
+### Install
+
+Ask your agent to download a skill by ID (from a Generate response or Bazaar
+listing) and save it locally. The agent pays the $0.01 USDC fee and polls
+until generation is complete.
+
+```
+Download Spectopus skill 550e8400-e29b-41d4-a716-446655440000 and save it to skills/
+```
+
+```
+Install the Spectopus skill at https://spectopus.majus.app/skills/550e8400-e29b-41d4-a716-446655440000
+```
 
 ---
 
-## Generate
+## Using Code (`@x402/fetch`)
 
-Start the async pipeline that produces a SKILL.md for a smart contract.
+Use `wrapFetchWithPayment` to handle x402 in your own JavaScript. Requires a
+funded wallet on Base Mainnet with USDC.
 
-**Endpoint:** `POST /skills/generate`
+### Generate
+
+**Endpoint:** `POST https://spectopus.majus.app/skills/generate`
 **Cost:** $0.10 USDC
-**Content-Type:** `application/json`
 
-### Request body
+**Request body**
 
 | Field             | Type     | Required | Description                                         |
 |-------------------|----------|----------|-----------------------------------------------------|
 | `contractAddress` | `string` | Yes      | EVM contract address (0x…)                          |
-| `message`         | `string` | No       | Optional hint for the generator (e.g. "focus on swap functions") |
+| `message`         | `string` | No       | Optional hint (e.g. "focus on swap functions")      |
 
-### Response body
+**Response**
 
 ```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "url": "https://spectopus.majus.app/skills/550e8400-e29b-41d4-a716-446655440000"
-}
+{ "id": "550e8400-e29b-41d4-a716-446655440000", "url": "https://spectopus.majus.app/skills/550e8400-e29b-41d4-a716-446655440000" }
 ```
 
-### Code example
+**Code example**
 
 ```js
 import { x402Client, wrapFetchWithPayment } from '@x402/fetch';
@@ -92,13 +124,11 @@ console.log('Skill ID:', id);
 console.log('Skill URL:', url);
 ```
 
-Generation is asynchronous. Poll `GET /skills/:id` to check when the skill is ready.
+Generation is asynchronous — poll `GET /skills/:id` until content is ready.
 
----
+### Explore
 
-## Explore
-
-Discover generated skills on x402 Bazaar using the `@x402/extensions/bazaar` client.
+Discover generated skills indexed on x402 Bazaar.
 
 ```js
 import { HTTPFacilitatorClient } from '@x402/core/http';
@@ -110,7 +140,6 @@ const bazaarClient = withBazaar(facilitatorClient);
 
 const resources = await bazaarClient.extensions.discovery.listResources({ type: 'http' });
 
-// Filter for Spectopus skill endpoints
 const BASE_URL = 'https://spectopus.majus.app';
 const skills = (resources.items ?? []).filter(r =>
   r.resource?.startsWith(`${BASE_URL}/skills/`)
@@ -122,23 +151,13 @@ skills.forEach(r => {
 });
 ```
 
-Skills are auto-indexed on Bazaar after generation. Each entry has a `resource`
-URL you can pass directly to `GET /skills/:id`.
+### Install
 
----
-
-## Install
-
-Download a generated SKILL.md and save it locally.
-
-**Endpoint:** `GET /skills/:id`
+**Endpoint:** `GET https://spectopus.majus.app/skills/:id`
 **Cost:** $0.01 USDC
 **Response:** `text/markdown`
 
-If generation is still in progress, the response will contain a status
-placeholder. Poll until the content is a valid SKILL.md (starts with `---`).
-
-### Code example
+Poll until the response starts with `---` (valid SKILL.md frontmatter).
 
 ```js
 import { x402Client, wrapFetchWithPayment } from '@x402/fetch';
@@ -155,10 +174,8 @@ async function pollSkill(skillUrl, maxAttempts = 20, intervalMs = 5000) {
   for (let i = 0; i < maxAttempts; i++) {
     const res = await fetchWithPayment(skillUrl);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
     const text = await res.text();
-    if (text.startsWith('---')) return text; // complete SKILL.md
-
+    if (text.startsWith('---')) return text;
     console.log(`Still generating… (attempt ${i + 1}/${maxAttempts})`);
     await new Promise(r => setTimeout(r, intervalMs));
   }
@@ -166,9 +183,7 @@ async function pollSkill(skillUrl, maxAttempts = 20, intervalMs = 5000) {
 }
 
 const skillId = '550e8400-e29b-41d4-a716-446655440000';
-const skillUrl = `https://spectopus.majus.app/skills/${skillId}`;
-
-const content = await pollSkill(skillUrl);
+const content = await pollSkill(`https://spectopus.majus.app/skills/${skillId}`);
 
 mkdirSync('skills/downloaded', { recursive: true });
 writeFileSync(`skills/downloaded/${skillId}.md`, content);
