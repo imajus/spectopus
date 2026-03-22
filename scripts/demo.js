@@ -50,20 +50,10 @@ async function main() {
     process.exit(1);
   }
 
-  // Filter for Spectopus skill endpoints (GET /skills/:id)
-  const serverUrl = new URL(BASE_URL);
-  const skillResources = (resources.resources ?? resources).filter(r => {
-    try {
-      const resourceUrl = new URL(r.url ?? r.resourceUrl ?? '');
-      return (
-        resourceUrl.hostname === serverUrl.hostname &&
-        resourceUrl.port === serverUrl.port &&
-        /^\/skills\/[^/]+$/.test(resourceUrl.pathname)
-      );
-    } catch {
-      return false;
-    }
-  });
+  // Filter for Spectopus skill endpoints using the custom marker set at registration time
+  const skillResources = (resources.resources ?? resources).filter(
+    r => r.metadata?.spectopusSkillId != null,
+  );
 
   if (skillResources.length === 0) {
     console.log('No Spectopus skills found on Bazaar.');

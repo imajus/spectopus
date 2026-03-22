@@ -78,6 +78,7 @@ export async function registerSkillEndpoint(id, metadata) {
         method: 'GET',
       },
       metadata: {
+        spectopusSkillId: id,
         contractAddress: metadata.contractAddress,
         chainId: metadata.chainId,
       },
