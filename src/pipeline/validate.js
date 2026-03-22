@@ -1,5 +1,12 @@
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { generateText } from 'ai';
 import { model } from './model.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ABI_SYSTEM_PROMPT = readFileSync(join(__dirname, 'prompts/validate-abi-system.md'), 'utf8');
+const SAFETY_SYSTEM_PROMPT = readFileSync(join(__dirname, 'prompts/validate-safety-system.md'), 'utf8');
 
 /**
  * Parse YAML frontmatter from a SKILL.md string.
@@ -51,7 +58,7 @@ export async function checkABICrossCheck(skillContent, abi) {
 
   const { text } = await generateText({
     model,
-    system: 'You are a smart contract code reviewer. Analyze whether code examples in a SKILL.md correctly match the contract ABI. Respond with valid JSON only.',
+    system: ABI_SYSTEM_PROMPT,
     prompt: `Review the following SKILL.md code examples against the contract ABI.
 
 ABI:
@@ -99,7 +106,7 @@ export async function checkSafety(skillContent, abi) {
 
   const { text } = await generateText({
     model,
-    system: 'You are a smart contract safety reviewer. Check whether a SKILL.md includes appropriate warnings. Respond with valid JSON only.',
+    system: SAFETY_SYSTEM_PROMPT,
     prompt: `Review the following SKILL.md for safety warnings.
 
 ${payableFunctions.length > 0 ? `Payable functions that need ETH value warnings: ${payableFunctions.join(', ')}` : ''}
