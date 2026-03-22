@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 let client;
 
@@ -19,6 +20,7 @@ function getClient() {
 
 const bucket = () => process.env.S3_BUCKET;
 const key = (id) => `skills/${id}.json`;
+const logKey = (id) => `logs/${id}.json`;
 
 async function putSkillObject(id, obj) {
   await getClient().send(new PutObjectCommand({
@@ -66,6 +68,23 @@ export async function markFailed(id, error) {
   const obj = await getSkill(id);
   const base = obj ?? { id, chainId: 8453, contractAddress: '', content: '' };
   await putSkillObject(id, { ...base, status: 'failed', content: error });
+}
+
+export async function putLog(skillId, logData) {
+  await getClient().send(new PutObjectCommand({
+    Bucket: bucket(),
+    Key: logKey(skillId),
+    Body: JSON.stringify(logData),
+    ContentType: 'application/json',
+  }));
+}
+
+export async function getLogUrl(skillId) {
+  const command = new GetObjectCommand({
+    Bucket: bucket(),
+    Key: logKey(skillId),
+  });
+  return getSignedUrl(getClient(), command, { expiresIn: 86400 });
 }
 
 export async function markReady(id, skillContent) {

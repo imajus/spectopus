@@ -7,13 +7,14 @@ import { createApp } from '../app.js';
 vi.mock('../storage.js', () => ({
   createPlaceholder: vi.fn().mockResolvedValue(undefined),
   getSkill: vi.fn().mockResolvedValue(null),
+  getLogUrl: vi.fn().mockResolvedValue('https://example.com/log-url'),
 }));
 
 vi.mock('../pipeline/index.js', () => ({
   runPipeline: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { createPlaceholder, getSkill } from '../storage.js';
+import { createPlaceholder, getSkill, getLogUrl } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
 
 beforeEach(() => {

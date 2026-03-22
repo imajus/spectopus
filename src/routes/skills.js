@@ -1,7 +1,7 @@
 import { paymentMiddleware } from 'x402-express';
 import { createThirdwebClient } from 'thirdweb';
 import { facilitator as createFacilitator } from 'thirdweb/x402';
-import { createPlaceholder, getSkill } from '../storage.js';
+import { createPlaceholder, getSkill, getLogUrl } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
 import { isValidAddress, sanitizeMessage } from '../guardrails.js';
 
@@ -65,6 +65,10 @@ export function registerSkillsRoutes(app) {
     const skill = await getSkill(id);
     if (!skill) return res.status(404).json({ error: 'Skill not found' });
     const status = skill.status === 'generating' ? 'processing' : skill.status;
-    return res.json({ status, content: skill.content });
+    const response = { status, content: skill.content };
+    if (skill.status === 'ready' || skill.status === 'failed') {
+      response.logUrl = await getLogUrl(id);
+    }
+    return res.json(response);
   });
 }
