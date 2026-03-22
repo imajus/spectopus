@@ -22,57 +22,77 @@ All endpoints require x402 payment (HTTP 402). Choose an approach below.
 
 ---
 
-## Using Payments MCP (no-code)
+## Using thirdweb MCP (no-code)
 
-Install [Coinbase Payments MCP](https://docs.cdp.coinbase.com/payments-mcp/welcome.md)
-once and your agent handles all x402 payments automatically — no API keys,
-no private keys, just email sign-in.
+[thirdweb MCP](https://api.thirdweb.com/llms.txt) gives your agent an x402-capable
+wallet and three tools that cover every Spectopus action — no private keys or
+custom code required. Configure it in your MCP client with your thirdweb secret key:
 
-```sh
-npx @coinbase/payments-mcp install
+```json
+{
+  "mcpServers": {
+    "thirdweb": {
+      "command": "npx",
+      "args": ["-y", "@thirdweb-dev/ai", "mcp"],
+      "env": { "THIRDWEB_SECRET_KEY": "<your-secret-key>" }
+    }
+  }
+}
 ```
 
 ### Generate
 
-Ask your agent to generate a skill for a contract address. The agent posts to
-`POST https://spectopus.majus.app/skills/generate`, pays the $0.10 USDC fee,
-and returns the skill ID and URL.
+Use the **`fetchWithPayment`** tool. It posts to `/skills/generate`, detects the
+HTTP 402, pays $0.10 USDC automatically, and returns `{ id, url }`.
 
-```
-Generate a Spectopus skill for contract 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+```json
+{
+  "tool": "fetchWithPayment",
+  "url": "https://spectopus.majus.app/skills/generate",
+  "method": "POST",
+  "body": {
+    "contractAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+  },
+  "chainId": "eip155:8453",
+  "maxValue": "100000"
+}
 ```
 
-Optional — add a focus hint:
-
-```
-Generate a Spectopus skill for 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, focus on transfer functions
-```
+> `maxValue` is in USDC base units (6 decimals): `100000` = $0.10.
 
 ### Explore
 
-Ask your agent to discover generated skills indexed on x402 Bazaar.
+Use the **`listPayableServices`** tool to discover generated skills indexed on
+the x402 Bazaar.
 
-```
-List available Spectopus skills on x402 Bazaar
+```json
+{
+  "tool": "listPayableServices",
+  "query": "spectopus.majus.app",
+  "sortBy": "createdAt",
+  "sortOrder": "desc"
+}
 ```
 
-```
-What x402 services are available at spectopus.majus.app?
-```
+Each result includes a `resource` URL you can pass directly to `fetchWithPayment`.
 
 ### Install
 
-Ask your agent to download a skill by ID (from a Generate response or Bazaar
-listing) and save it locally. The agent pays the $0.01 USDC fee and polls
-until generation is complete.
+Use the **`fetchWithPayment`** tool with a GET request. It pays $0.01 USDC and
+returns the SKILL.md content. Poll until the response starts with `---`
+(valid SKILL.md frontmatter — generation may still be in progress).
 
-```
-Download Spectopus skill 550e8400-e29b-41d4-a716-446655440000 and save it to skills/
+```json
+{
+  "tool": "fetchWithPayment",
+  "url": "https://spectopus.majus.app/skills/550e8400-e29b-41d4-a716-446655440000",
+  "method": "GET",
+  "chainId": "eip155:8453",
+  "maxValue": "10000"
+}
 ```
 
-```
-Install the Spectopus skill at https://spectopus.majus.app/skills/550e8400-e29b-41d4-a716-446655440000
-```
+> `maxValue`: `10000` = $0.01 USDC.
 
 ---
 
