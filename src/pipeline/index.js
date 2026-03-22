@@ -59,8 +59,8 @@ export async function runPipeline(skillId, contractAddress, chainId, message) {
     // Register skill endpoint on Bazaar (non-blocking)
     registerSkillEndpoint(skillId, {
       contractAddress,
-      chainId,
-      description: `Agent Skill for contract ${contractAddress} on chain ${chainId} ($0.01 USDC)`,
+      chainId: 8453,
+      description: `Agent Skill for contract ${contractAddress} on Base Mainnet ($0.01 USDC)`,
     }).catch(err => {
       console.warn(`Bazaar skill registration warning for ${skillId}:`, err.message);
     });
