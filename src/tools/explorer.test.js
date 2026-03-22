@@ -1,26 +1,21 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { fetchABI, fetchSourceCode } from './explorer.js';
-
-beforeEach(() => {
-  process.env.ETHERSCAN_API_KEY = 'test-key';
-});
 
 describe('fetchABI', () => {
   it('returns parsed ABI for a verified contract', async () => {
     const abi = [{ type: 'function', name: 'transfer' }];
     global.fetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ status: '1', result: JSON.stringify(abi) }),
+      json: () => Promise.resolve({ abi, source_code: 'pragma solidity ^0.8.0;', is_verified: true }),
     });
 
     const result = await fetchABI('0xabc');
     expect(result).toEqual(abi);
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('basescan.org'));
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('test-key'));
+    expect(fetch).toHaveBeenCalledWith('https://base.blockscout.com/api/v2/smart-contracts/0xabc');
   });
 
   it('returns null for unverified contract', async () => {
     global.fetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ status: '0', result: 'Contract source code not verified' }),
+      json: () => Promise.resolve({ is_verified: false }),
     });
 
     const result = await fetchABI('0xabc');
@@ -33,8 +28,9 @@ describe('fetchSourceCode', () => {
     global.fetch = vi.fn().mockResolvedValue({
       json: () =>
         Promise.resolve({
-          status: '1',
-          result: [{ SourceCode: 'pragma solidity ^0.8.0;' }],
+          abi: [],
+          source_code: 'pragma solidity ^0.8.0;',
+          is_verified: true,
         }),
     });
 
@@ -44,7 +40,7 @@ describe('fetchSourceCode', () => {
 
   it('returns null when no verified source', async () => {
     global.fetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ status: '0', result: [] }),
+      json: () => Promise.resolve({ is_verified: false }),
     });
 
     const result = await fetchSourceCode('0xabc');
