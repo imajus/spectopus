@@ -148,24 +148,16 @@ Generation is asynchronous — poll `GET /skills/:id` until content is ready.
 
 ### Explore
 
-Discover generated skills indexed on x402 Bazaar.
+Discover generated skills via thirdweb's x402 discovery API.
 
 ```js
-import { HTTPFacilitatorClient } from '@x402/core/http';
-import { facilitator } from '@coinbase/x402';
-import { withBazaar } from '@x402/extensions/bazaar';
-
-const facilitatorClient = new HTTPFacilitatorClient(facilitator);
-const bazaarClient = withBazaar(facilitatorClient);
-
-const resources = await bazaarClient.extensions.discovery.listResources({ type: 'http' });
-
-const BASE_URL = 'https://spectopus.majus.app';
-const skills = (resources.items ?? []).filter(r =>
-  r.resource?.startsWith(`${BASE_URL}/skills/`)
+const res = await fetch(
+  'https://api.thirdweb.com/v1/payments/x402/discovery/resources?query=spectopus.majus.app',
+  { headers: { 'x-secret-key': process.env.THIRDWEB_SECRET_KEY } },
 );
+const { resources } = await res.json();
 
-skills.forEach(r => {
+resources.forEach(r => {
   console.log(r.resource);
   console.log(r.accepts?.[0]?.description);
 });
