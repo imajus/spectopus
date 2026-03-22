@@ -32,14 +32,13 @@ export async function registerGenerateEndpoint() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       url: `${baseUrl}/skills/generate`,
-      description: 'Generate an Agent Skill for a smart contract ($0.10 USDC)',
+      description: 'Generate an Agent Skill for a smart contract on Base Mainnet ($0.10 USDC)',
       input: {
         type: 'http',
         method: 'POST',
         bodyType: 'json',
         body: {
           contractAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-          chainId: 8453,
         },
       },
     }),
