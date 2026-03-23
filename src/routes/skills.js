@@ -3,6 +3,7 @@ import { createThirdwebClient } from 'thirdweb';
 import { facilitator as createFacilitator } from 'thirdweb/x402';
 import { createPlaceholder, getSkill } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
+import { isValidAddress, sanitizeMessage } from '../guardrails.js';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -40,12 +41,18 @@ export function registerSkillsRoutes(app) {
       return res.status(400).json({ error: 'contractAddress is required' });
     }
 
+    if (!isValidAddress(contractAddress)) {
+      return res.status(400).json({ error: 'contractAddress must be a valid Ethereum address (0x followed by 40 hex characters)' });
+    }
+
+    const sanitizedMessage = message != null ? sanitizeMessage(message, 500) : undefined;
+
     const id = crypto.randomUUID();
     const url = `${BASE_URL}/skills/${id}`;
 
     await createPlaceholder(id, { contractAddress });
 
-    runPipeline(id, contractAddress, message).catch(err => {
+    runPipeline(id, contractAddress, sanitizedMessage).catch(err => {
       console.error(`Pipeline failed for skill ${id}:`, err);
     });
 

@@ -2,6 +2,7 @@ import { updateStage, markReady, markFailed } from '../storage.js';
 import { runResearch } from './research.js';
 import { runGenerate } from './generate.js';
 import { runValidate } from './validate.js';
+import { scanOutput } from '../guardrails.js';
 
 const MAX_RETRIES = 2;
 
@@ -28,7 +29,7 @@ export async function runPipeline(skillId, contractAddress, message) {
     // Stage 2: Generate
     await updateStage(skillId, 'generate');
 
-    let skillContent = await runGenerate(research);
+    let skillContent = await runGenerate(research, [], message);
 
     // Stage 3: Validate (with retry loop)
     await updateStage(skillId, 'validate');
@@ -40,7 +41,7 @@ export async function runPipeline(skillId, contractAddress, message) {
 
       // Retry: generate with feedback, then re-validate
       await updateStage(skillId, 'generate');
-      skillContent = await runGenerate(research, validation.errors);
+      skillContent = await runGenerate(research, validation.errors, message);
 
       await updateStage(skillId, 'validate');
       validation = await runValidate(skillContent, research.abi || []);
@@ -48,6 +49,12 @@ export async function runPipeline(skillId, contractAddress, message) {
 
     if (!validation.valid) {
       throw new Error(`Validation failed after ${MAX_RETRIES} retries: ${validation.errors.join('; ')}`);
+    }
+
+    // Output safety scan before storing
+    const outputScan = scanOutput(skillContent);
+    if (!outputScan.safe) {
+      throw new Error(`Output safety scan failed: ${outputScan.reason}`);
     }
 
     // Store final skill with status: ready

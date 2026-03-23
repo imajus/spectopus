@@ -21,7 +21,7 @@ export async function runResearch(contractAddress) {
     messages: [
       new SystemMessage(SYSTEM_PROMPT),
       new HumanMessage(
-        `Research the smart contract at address ${contractAddress} on Base Mainnet (chainId 8453). Use the tools to fetch the ABI, source code, and detect ERC patterns. Then return a JSON object with your findings.`
+        `Research the smart contract at address <contract_address>${contractAddress}</contract_address> on Base Mainnet (chainId 8453). Use the tools to fetch the ABI, source code, and detect ERC patterns. Then return a JSON object with your findings.`
       ),
     ],
   });

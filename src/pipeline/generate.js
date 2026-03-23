@@ -11,10 +11,15 @@ const SYSTEM_PROMPT = readFileSync(join(__dirname, 'prompts/generate-system.md')
  * Run the generate stage to produce a SKILL.md.
  * @param {object} research - structured research summary from runResearch
  * @param {string[]} [validationErrors] - errors from previous validation attempt (for retries)
+ * @param {string} [message] - optional user-supplied context message
  * @returns {Promise<string>} SKILL.md content
  */
-export async function runGenerate(research, validationErrors = []) {
+export async function runGenerate(research, validationErrors = [], message) {
   let userContent = `Generate a complete SKILL.md for the following smart contract research:\n\n${JSON.stringify(research, null, 2)}`;
+
+  if (message) {
+    userContent += `\n\nAdditional context from user: <user_message>${message}</user_message>`;
+  }
 
   if (validationErrors.length > 0) {
     userContent += `\n\nIMPORTANT: The previous generation attempt failed validation with these errors. Fix all of them:\n${validationErrors.map((e) => `- ${e}`).join('\n')}`;

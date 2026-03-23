@@ -10,7 +10,7 @@ const skillMd = readFileSync(join(__dirname, '../skills/spectopus/SKILL.md'), 'u
 export function createApp() {
   const app = express();
   app.set('trust proxy', true);
-  app.use(express.json());
+  app.use(express.json({ limit: '16kb' }));
 
   app.get('/', (req, res) => {
     res.type('text/markdown').send(skillMd);

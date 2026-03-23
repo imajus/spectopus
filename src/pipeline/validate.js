@@ -77,12 +77,12 @@ If valid, errors should be an empty array.`),
 
   const text = response.content;
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return { valid: true, errors: [] }; // Fail open if LLM response is unparseable
+  if (!jsonMatch) return { valid: false, errors: ['ABI cross-check: LLM response was unparseable'] };
 
   try {
     return JSON.parse(jsonMatch[0]);
   } catch {
-    return { valid: true, errors: [] };
+    return { valid: false, errors: ['ABI cross-check: LLM response was invalid JSON'] };
   }
 }
 
@@ -124,12 +124,12 @@ If valid, errors should be an empty array.`),
 
   const text = response.content;
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return { valid: true, errors: [] };
+  if (!jsonMatch) return { valid: false, errors: ['Safety check: LLM response was unparseable'] };
 
   try {
     return JSON.parse(jsonMatch[0]);
   } catch {
-    return { valid: true, errors: [] };
+    return { valid: false, errors: ['Safety check: LLM response was invalid JSON'] };
   }
 }
 

@@ -21,6 +21,14 @@ Express server with two x402-paywalled endpoints:
 
 Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Completed skills are auto-indexed on thirdweb's x402 Bazaar via the thirdweb facilitator during payment settlement.
 
+### Pipeline Guardrails
+- `src/guardrails.js` — central utility: `isValidAddress` (regex), `sanitizeMessage` (strip control chars, 500-char limit), `scanOutput` (blocklist check)
+- Input validation at route level: address format (400 on invalid), message sanitization, 16kb body size limit
+- `contractAddress` URL-encoded in Blockscout API calls (`encodeURIComponent`)
+- User data wrapped in XML delimiter tags in prompts (`<contract_address>`, `<user_message>`) with anti-injection system instructions
+- Validation LLM failures are fail-closed (`valid: false`) not fail-open
+- Output scanned via `scanOutput()` before `markReady()` — throws on blocked patterns
+
 ## Tech Stack
 
 - Node.js + Express + `x402-express` middleware (Coinbase v1, compatible with thirdweb)
