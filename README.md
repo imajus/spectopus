@@ -181,6 +181,10 @@ Real conversation between an AI agent (Claude Code with thirdweb MCP) and Specto
 
 3. **Synthesis Open Track** — community track
 
+## Development Logs
+
+The `logs/` directory contains full Claude Code conversation logs (JSONL format) from the development of this project. These are raw, unedited transcripts showing how the entire codebase was built through human-AI collaboration — from initial scaffolding to pipeline implementation to deployment. Useful for understanding design decisions and the iterative development process.
+
 ## Links
 
 - [Agent Skills Specification](https://agentskills.io)
