@@ -1,7 +1,7 @@
 const BLOCKSCOUT_URL = 'https://base.blockscout.com';
 
 export async function fetchABI(contractAddress) {
-  const url = `${BLOCKSCOUT_URL}/api/v2/smart-contracts/${contractAddress}`;
+  const url = `${BLOCKSCOUT_URL}/api/v2/smart-contracts/${encodeURIComponent(contractAddress)}`;
 
   const res = await fetch(url);
   const data = await res.json();
@@ -11,7 +11,7 @@ export async function fetchABI(contractAddress) {
 }
 
 export async function fetchSourceCode(contractAddress) {
-  const url = `${BLOCKSCOUT_URL}/api/v2/smart-contracts/${contractAddress}`;
+  const url = `${BLOCKSCOUT_URL}/api/v2/smart-contracts/${encodeURIComponent(contractAddress)}`;
 
   const res = await fetch(url);
   const data = await res.json();
