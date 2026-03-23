@@ -113,22 +113,64 @@ graph TD
 
 **Skills published on Bazaar, not ERC-8004.** ERC-8004 is designed for agent identity and trust (Spectopus itself is registered there). For skill discovery, x402 Bazaar is the better fit — it's purpose-built for discovering and paying for services, which is what skills are.
 
+## Demo: Agent-to-Agent Skill Generation
+
+Real conversation between an AI agent (Claude Code with thirdweb MCP) and Spectopus. The agent discovers the Spectopus skill, uses it to generate a skill for BasePaint, and receives a structured result — all paid autonomously via x402.
+
+> **Human:** Generate a skill for BasePaint — collaborative pixel art project native to Base Mainnet. Contract: `0xBa5e05cb26b78eDa3A2f8e3b3814726305dcAc83`
+
+> **Agent:** *Reads the Spectopus SKILL.md from `https://spectopus.majus.app/` to learn available actions and payment details.*
+
+> **Agent:** *Calls `POST /skills/generate` with x402 payment ($0.10 USDC), passing the contract address and context message.*
+> ```json
+> { "id": "793b50b5-...", "url": "https://spectopus.majus.app/skills/793b50b5-..." }
+> ```
+
+> **Agent:** *Polls `GET /skills/:id` with x402 payment ($0.01 USDC). First two attempts return `"status": "processing"`. After ~45 seconds, the skill is ready.*
+
+> **Agent:** The BasePaint skill was generated successfully.
+>
+> | Action | Function | Notes |
+> |---|---|---|
+> | Check current day | `today()` | Canvas resets daily |
+> | Paint on canvas | `paint(day, tokenId, pixels)` | Requires owning a brush NFT |
+> | Mint editions | `mint(day, count)` | Previous day only, payable in ETH |
+> | Check contributions | `contribution(day, author)` | Determines artist revenue share |
+> | Withdraw earnings | `authorWithdraw(indexes)` | For completed days only |
+> | Read balances/URIs | `balanceOf`, `uri` | Standard ERC-1155 |
+>
+> Key gotchas the skill documents:
+> - Minting window is one day only — miss it and it's gone
+> - Painting requires an external brush NFT with limited usage
+> - `authorWithdraw` only works for days strictly before `today() - 1`
+> - Overpayment on mint is not refunded
+>
+> **Total cost: $0.11 USDC** (generate + fetch). Time: ~2 minutes.
+
 ## API Response Example
 
 `GET /skills/:id` returns a JSON object with the skill status and content:
 
 ```json
 {
+  "id": "793b50b5-490e-45f4-a80a-13a602cef023",
   "status": "ready",
-  "content": "---\nname: USDC Token\ndescription: Transfer, approve, and query balances on the USDC stablecoin contract\nversion: 1.0.0\n...\n---\n\n# USDC Token\n\n## Functions\n\n### transfer\n...",
-  "logUrl": "https://r2.example.com/logs/abc123.json?X-Amz-Expires=86400&..."
+  "stage": "validate",
+  "contractAddress": "0xBa5e05cb26b78eDa3A2f8e3b3814726305dcAc83",
+  "chainId": 8453,
+  "content": "---\nname: BasePaint\ndescription: Interact with a daily collaborative ERC-1155 onchain art contract on Base...\nmetadata:\n  contractAddress: \"0xBa5e05cb26b78eDa3A2f8e3b3814726305dcAc83\"\n  chainId: 8453\n  generator: \"spectopus\"\n---\n\n## Overview\n\nBasePaint is a Base Mainnet ERC-1155 collaborative pixel art contract...\n",
+  "logUrl": "https://r2.example.com/logs/793b50b5-490e-45f4-a80a-13a602cef023.json?X-Amz-Expires=86400&..."
 }
 ```
 
 | Field | Description |
 |---|---|
+| `id` | Unique skill identifier (UUID), used in the `GET /skills/:id` URL. |
 | `status` | `processing` — pipeline still running. `ready` — skill generated successfully. `failed` — pipeline failed after retries. |
-| `content` | The full SKILL.md text (YAML frontmatter + markdown body) conforming to the [Agent Skills spec](https://agentskills.io). Empty string while processing. |
+| `stage` | Last completed pipeline stage (`research`, `generate`, `validate`). Shows progress while processing. |
+| `contractAddress` | The smart contract address the skill was generated for. |
+| `chainId` | EVM chain ID (`8453` = Base Mainnet). |
+| `content` | The full SKILL.md text — YAML frontmatter (name, description, contract metadata) + markdown body (overview, functions, code examples, gotchas) conforming to the [Agent Skills spec](https://agentskills.io). Empty string while processing. |
 | `logUrl` | Pre-signed S3 URL (24h TTL) to the structured execution log. Present only when `status` is `ready` or `failed`. Contains full pipeline trace: stage transitions, tool calls, LLM inputs/outputs, decisions. |
 
 ## Hackathon Tracks
