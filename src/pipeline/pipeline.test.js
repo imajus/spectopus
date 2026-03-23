@@ -24,6 +24,7 @@ vi.mock('./logger.js', () => ({
     startStage: vi.fn(),
     logToolCall: vi.fn(),
     logDecision: vi.fn(),
+    logLLMCall: vi.fn(),
     endStage: vi.fn(),
     flush: vi.fn().mockResolvedValue(undefined),
   })),
@@ -71,9 +72,9 @@ describe('runPipeline', () => {
   it('runs research → generate → validate in sequence', async () => {
     await runPipeline('skill-1', '0x1234');
 
-    expect(runResearch).toHaveBeenCalledWith('0x1234');
-    expect(runGenerate).toHaveBeenCalledWith(MOCK_RESEARCH);
-    expect(runValidate).toHaveBeenCalledWith(VALID_SKILL_MD, []);
+    expect(runResearch).toHaveBeenCalledWith('0x1234', expect.anything());
+    expect(runGenerate).toHaveBeenCalledWith(MOCK_RESEARCH, [], undefined, expect.anything());
+    expect(runValidate).toHaveBeenCalledWith(VALID_SKILL_MD, [], expect.anything());
   });
 
   it('stores the final skill with status ready', async () => {
@@ -95,7 +96,7 @@ describe('runPipeline', () => {
     expect(runGenerate).toHaveBeenCalledTimes(2);
     expect(runValidate).toHaveBeenCalledTimes(2);
     // Second generate call should include the validation errors
-    expect(runGenerate).toHaveBeenNthCalledWith(2, MOCK_RESEARCH, ['Missing warning for payable function']);
+    expect(runGenerate).toHaveBeenNthCalledWith(2, MOCK_RESEARCH, ['Missing warning for payable function'], undefined, expect.anything());
     expect(markReady).toHaveBeenCalledWith('skill-1', VALID_SKILL_MD);
   });
 

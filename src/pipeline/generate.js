@@ -14,7 +14,7 @@ const SYSTEM_PROMPT = readFileSync(join(__dirname, 'prompts/generate-system.md')
  * @param {string} [message] - optional user-supplied context message
  * @returns {Promise<string>} SKILL.md content
  */
-export async function runGenerate(research, validationErrors = [], message) {
+export async function runGenerate(research, validationErrors = [], message, logger) {
   let userContent = `Generate a complete SKILL.md for the following smart contract research:\n\n${JSON.stringify(research, null, 2)}`;
 
   if (message) {
@@ -25,10 +25,17 @@ export async function runGenerate(research, validationErrors = [], message) {
     userContent += `\n\nIMPORTANT: The previous generation attempt failed validation with these errors. Fix all of them:\n${validationErrors.map((e) => `- ${e}`).join('\n')}`;
   }
 
+  const input = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'user', content: userContent },
+  ];
+
   const response = await model.invoke([
     new SystemMessage(SYSTEM_PROMPT),
     new HumanMessage(userContent),
   ]);
 
-  return response.content.trim();
+  const output = response.content.trim();
+  logger?.logLLMCall('generate', input, output);
+  return output;
 }

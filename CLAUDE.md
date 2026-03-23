@@ -29,12 +29,19 @@ Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Complet
 - Validation LLM failures are fail-closed (`valid: false`) not fail-open
 - Output scanned via `scanOutput()` before `markReady()` — throws on blocked patterns
 
+### Execution Logging
+Each pipeline run creates a structured log via `src/pipeline/logger.js` (`createLogger(skillId, contractAddress)`). The logger accumulates stage transitions, decisions, tool calls, LLM inputs/outputs, and errors in memory, then writes to S3 at `logs/{skillId}.json` on `flush()`. `GET /skills/:id` includes a `logUrl` (24h presigned S3 URL) when status is `ready` or `failed`.
+
+Logger methods: `startStage(name)`, `endStage(result)`, `logDecision(message)`, `logToolCall(tool, input)`, `logLLMCall(label, input, output)`, `flush(status, error?)`.
+
+LLM calls are logged per stage: `research-agent` (full ReAct message chain including tool calls/results), `generate`, `validate-abi`, `validate-safety`. Each stage function (`runResearch`, `runGenerate`, `runValidate`) accepts an optional `logger` parameter — pass it from `runPipeline` so calls are captured.
+
 ## Tech Stack
 
 - Node.js + Express + `x402-express` middleware (Coinbase v1, compatible with thirdweb)
 - thirdweb facilitator (`thirdweb/x402`) — requires `THIRDWEB_SECRET_KEY` + `THIRDWEB_SERVER_WALLET_ADDRESS`
 - Vercel AI SDK (`ai`) with swappable providers — currently `@ai-sdk/openai` (GPT-5)
-- S3-compatible object storage
+- S3-compatible object storage (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`)
 - Basescan/Etherscan API for ABI fetching
 
 ## x402 / Bazaar Notes

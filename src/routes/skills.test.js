@@ -7,13 +7,14 @@ import { createApp } from '../app.js';
 vi.mock('../storage.js', () => ({
   createPlaceholder: vi.fn().mockResolvedValue(undefined),
   getSkill: vi.fn().mockResolvedValue(null),
+  getLogUrl: vi.fn().mockResolvedValue('https://example.com/log-url'),
 }));
 
 vi.mock('../pipeline/index.js', () => ({
   runPipeline: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { createPlaceholder, getSkill } from '../storage.js';
+import { createPlaceholder, getSkill, getLogUrl } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
 
 beforeEach(() => {
@@ -49,10 +50,10 @@ describe('POST /skills/generate', () => {
     const app = createApp();
     const res = await request(app)
       .post('/skills/generate')
-      .send({ contractAddress: '0xabc' });
+      .send({ contractAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' });
 
     expect(createPlaceholder).toHaveBeenCalledWith(res.body.id, {
-      contractAddress: '0xabc',
+      contractAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
     });
   });
 
@@ -60,16 +61,16 @@ describe('POST /skills/generate', () => {
     const app = createApp();
     const res = await request(app)
       .post('/skills/generate')
-      .send({ contractAddress: '0xabc', message: 'Focus on ERC-20' });
+      .send({ contractAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', message: 'Focus on ERC-20' });
 
-    expect(runPipeline).toHaveBeenCalledWith(res.body.id, '0xabc', 'Focus on ERC-20');
+    expect(runPipeline).toHaveBeenCalledWith(res.body.id, '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', 'Focus on ERC-20');
   });
 
   it('returns unique ids for separate requests', async () => {
     const app = createApp();
     const [r1, r2] = await Promise.all([
-      request(app).post('/skills/generate').send({ contractAddress: '0xabc' }),
-      request(app).post('/skills/generate').send({ contractAddress: '0xabc' }),
+      request(app).post('/skills/generate').send({ contractAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' }),
+      request(app).post('/skills/generate').send({ contractAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' }),
     ]);
 
     expect(r1.body.id).not.toBe(r2.body.id);
@@ -87,7 +88,7 @@ describe('POST /skills/generate', () => {
     const app = createApp();
     const res = await request(app)
       .post('/skills/generate')
-      .send({ contractAddress: '0xabc', message: 'Focus on ERC-20 transfers' });
+      .send({ contractAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', message: 'Focus on ERC-20 transfers' });
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('id');

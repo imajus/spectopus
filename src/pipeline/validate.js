@@ -51,14 +51,12 @@ export function checkFrontmatter(skillContent) {
  * Verifies code examples reference real function signatures from the ABI.
  * @returns {Promise<{ valid: boolean, errors: string[] }>}
  */
-export async function checkABICrossCheck(skillContent, abi) {
+export async function checkABICrossCheck(skillContent, abi, logger) {
   if (!abi || abi.length === 0) {
     return { valid: true, errors: [] }; // Can't check without ABI
   }
 
-  const response = await model.invoke([
-    new SystemMessage(ABI_SYSTEM_PROMPT),
-    new HumanMessage(`Review the following SKILL.md code examples against the contract ABI.
+  const userContent = `Review the following SKILL.md code examples against the contract ABI.
 
 ABI:
 ${JSON.stringify(abi, null, 2)}
@@ -72,10 +70,16 @@ Check that:
 3. Return types are used correctly
 
 Respond with JSON: { "valid": boolean, "errors": string[] }
-If valid, errors should be an empty array.`),
+If valid, errors should be an empty array.`;
+
+  const response = await model.invoke([
+    new SystemMessage(ABI_SYSTEM_PROMPT),
+    new HumanMessage(userContent),
   ]);
 
   const text = response.content;
+  logger?.logLLMCall('validate-abi', [{ role: 'system', content: ABI_SYSTEM_PROMPT }, { role: 'user', content: userContent }], text);
+
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return { valid: false, errors: ['ABI cross-check: LLM response was unparseable'] };
 
@@ -91,7 +95,7 @@ If valid, errors should be an empty array.`),
  * Verifies the skill includes warnings for payable functions and approval patterns.
  * @returns {Promise<{ valid: boolean, errors: string[] }>}
  */
-export async function checkSafety(skillContent, abi) {
+export async function checkSafety(skillContent, abi, logger) {
   const payableFunctions = abi
     ? abi.filter((item) => item.type === 'function' && item.stateMutability === 'payable').map((f) => f.name)
     : [];
@@ -104,9 +108,7 @@ export async function checkSafety(skillContent, abi) {
     return { valid: true, errors: [] }; // Nothing to check
   }
 
-  const response = await model.invoke([
-    new SystemMessage(SAFETY_SYSTEM_PROMPT),
-    new HumanMessage(`Review the following SKILL.md for safety warnings.
+  const userContent = `Review the following SKILL.md for safety warnings.
 
 ${payableFunctions.length > 0 ? `Payable functions that need ETH value warnings: ${payableFunctions.join(', ')}` : ''}
 ${hasApprovalPattern ? 'Contract has approval functions (approve/setApprovalForAll) that require approval-before-transfer warnings.' : ''}
@@ -119,10 +121,16 @@ ${payableFunctions.length > 0 ? '- Payable functions (user must send ETH value)'
 ${hasApprovalPattern ? '- Approval patterns (approve before transferFrom, risks of unlimited approvals)' : ''}
 
 Respond with JSON: { "valid": boolean, "errors": string[] }
-If valid, errors should be an empty array.`),
+If valid, errors should be an empty array.`;
+
+  const response = await model.invoke([
+    new SystemMessage(SAFETY_SYSTEM_PROMPT),
+    new HumanMessage(userContent),
   ]);
 
   const text = response.content;
+  logger?.logLLMCall('validate-safety', [{ role: 'system', content: SAFETY_SYSTEM_PROMPT }, { role: 'user', content: userContent }], text);
+
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return { valid: false, errors: ['Safety check: LLM response was unparseable'] };
 
@@ -139,11 +147,11 @@ If valid, errors should be an empty array.`),
  * @param {object[]} [abi] - contract ABI (optional, for ABI cross-check and safety)
  * @returns {Promise<{ valid: boolean, errors: string[] }>}
  */
-export async function runValidate(skillContent, abi = []) {
+export async function runValidate(skillContent, abi = [], logger) {
   const frontmatterResult = checkFrontmatter(skillContent);
   const [abiResult, safetyResult] = await Promise.all([
-    checkABICrossCheck(skillContent, abi),
-    checkSafety(skillContent, abi),
+    checkABICrossCheck(skillContent, abi, logger),
+    checkSafety(skillContent, abi, logger),
   ]);
 
   const errors = [
