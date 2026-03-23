@@ -173,6 +173,10 @@ Real conversation between an AI agent (Claude Code with thirdweb MCP) and Specto
 | `content` | The full SKILL.md text — YAML frontmatter (name, description, contract metadata) + markdown body (overview, functions, code examples, gotchas) conforming to the [Agent Skills spec](https://agentskills.io). Empty string while processing. |
 | `logUrl` | Pre-signed S3 URL (24h TTL) to the structured execution log. Present only when `status` is `ready` or `failed`. Contains full pipeline trace: stage transitions, tool calls, LLM inputs/outputs, decisions. |
 
+## Agent Log Example
+
+See [agent_log.json](./agent_log.json).
+
 ## Hackathon Tracks
 
 1. **Agent Services on Base** (Base) — Spectopus is a discoverable agent service on Base that accepts x402 micropayments for skill generation. Any agent can find it via Bazaar, pay with USDC, and get a working skill back — no accounts, no API keys, pure agent-to-agent commerce.
