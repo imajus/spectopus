@@ -40,7 +40,7 @@ LLM calls are logged per stage: `research-agent` (full ReAct message chain inclu
 
 - Node.js + Express + `x402-express` middleware (Coinbase v1, compatible with thirdweb)
 - thirdweb facilitator (`thirdweb/x402`) — requires `THIRDWEB_SECRET_KEY` + `THIRDWEB_SERVER_WALLET_ADDRESS`
-- Vercel AI SDK (`ai`) with swappable providers — currently `@ai-sdk/openai` (GPT-5)
+- LangChain (`@langchain/core`, `@langchain/openai`) + LangGraph (`@langchain/langgraph`) for ReAct agent — currently GPT-5
 - S3-compatible object storage (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`)
 - Basescan/Etherscan API for ABI fetching
 
