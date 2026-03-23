@@ -73,7 +73,7 @@ describe('runPipeline', () => {
     await runPipeline('skill-1', '0x1234');
 
     expect(runResearch).toHaveBeenCalledWith('0x1234', expect.anything());
-    expect(runGenerate).toHaveBeenCalledWith(MOCK_RESEARCH, undefined, expect.anything());
+    expect(runGenerate).toHaveBeenCalledWith(MOCK_RESEARCH, [], undefined, expect.anything());
     expect(runValidate).toHaveBeenCalledWith(VALID_SKILL_MD, [], expect.anything());
   });
 
@@ -96,7 +96,7 @@ describe('runPipeline', () => {
     expect(runGenerate).toHaveBeenCalledTimes(2);
     expect(runValidate).toHaveBeenCalledTimes(2);
     // Second generate call should include the validation errors
-    expect(runGenerate).toHaveBeenNthCalledWith(2, MOCK_RESEARCH, ['Missing warning for payable function'], expect.anything());
+    expect(runGenerate).toHaveBeenNthCalledWith(2, MOCK_RESEARCH, ['Missing warning for payable function'], undefined, expect.anything());
     expect(markReady).toHaveBeenCalledWith('skill-1', VALID_SKILL_MD);
   });
 

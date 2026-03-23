@@ -30,7 +30,11 @@ Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Complet
 - Output scanned via `scanOutput()` before `markReady()` — throws on blocked patterns
 
 ### Execution Logging
-Each pipeline run creates a structured log via `src/pipeline/logger.js` (`createLogger(skillId, contractAddress)`). The logger accumulates stage transitions, decisions, tool calls, and errors in memory, then writes to S3 at `logs/{skillId}.json` on `flush()`. `GET /skills/:id` includes a `logUrl` (24h presigned S3 URL) when status is `ready` or `failed`.
+Each pipeline run creates a structured log via `src/pipeline/logger.js` (`createLogger(skillId, contractAddress)`). The logger accumulates stage transitions, decisions, tool calls, LLM inputs/outputs, and errors in memory, then writes to S3 at `logs/{skillId}.json` on `flush()`. `GET /skills/:id` includes a `logUrl` (24h presigned S3 URL) when status is `ready` or `failed`.
+
+Logger methods: `startStage(name)`, `endStage(result)`, `logDecision(message)`, `logToolCall(tool, input)`, `logLLMCall(label, input, output)`, `flush(status, error?)`.
+
+LLM calls are logged per stage: `research-agent` (full ReAct message chain including tool calls/results), `generate`, `validate-abi`, `validate-safety`. Each stage function (`runResearch`, `runGenerate`, `runValidate`) accepts an optional `logger` parameter — pass it from `runPipeline` so calls are captured.
 
 ## Tech Stack
 
