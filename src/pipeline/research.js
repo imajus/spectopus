@@ -14,7 +14,19 @@ const SYSTEM_PROMPT = readFileSync(join(__dirname, 'prompts/research-system.md')
  * @param {string} contractAddress
  * @returns {Promise<object>} structured research summary
  */
-export async function runResearch(contractAddress) {
+function serializeMessages(messages) {
+  return messages.map((msg) => {
+    const role =
+      msg._getType?.() === 'human' ? 'user'
+      : msg._getType?.() === 'ai' ? 'assistant'
+      : msg._getType?.() === 'tool' ? 'tool'
+      : 'system';
+    const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+    return { role, content };
+  });
+}
+
+export async function runResearch(contractAddress, logger) {
   const agent = createReactAgent({ llm: model, tools: researchTools });
 
   const result = await agent.invoke({
@@ -28,6 +40,7 @@ export async function runResearch(contractAddress) {
 
   const messages = result.messages;
   const lastMessage = messages[messages.length - 1];
+  logger?.logLLMCall('research-agent', serializeMessages(messages.slice(0, -1)), typeof lastMessage.content === 'string' ? lastMessage.content : JSON.stringify(lastMessage.content));
   const text = typeof lastMessage.content === 'string' ? lastMessage.content : JSON.stringify(lastMessage.content);
 
   // Extract JSON from the response text

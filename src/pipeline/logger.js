@@ -26,6 +26,12 @@ export function createLogger(skillId, contractAddress) {
       }
     },
 
+    logLLMCall(label, input, output) {
+      if (currentStage) {
+        currentStage.events.push({ type: 'llm_call', label, input, output, timestamp: new Date().toISOString() });
+      }
+    },
+
     logDecision(message) {
       if (currentStage) {
         currentStage.events.push({ type: 'decision', message, timestamp: new Date().toISOString() });
