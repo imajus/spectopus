@@ -12,13 +12,15 @@ const MAX_RETRIES = 2;
  * @param {string} skillId - UUID for the skill (S3 key)
  * @param {string} contractAddress - contract address to generate skill for
  * @param {string} [message] - optional user message / extra context
+ * @param {Function} [onProgress] - optional callback(stage: string) called at each stage transition
  */
-export async function runPipeline(skillId, contractAddress, message) {
+export async function runPipeline(skillId, contractAddress, message, onProgress) {
   let retries = 0;
 
   try {
     // Stage 1: Research
     await updateStage(skillId, 'research');
+    onProgress?.('research');
 
     const research = await runResearch(contractAddress);
 
@@ -28,11 +30,13 @@ export async function runPipeline(skillId, contractAddress, message) {
 
     // Stage 2: Generate
     await updateStage(skillId, 'generate');
+    onProgress?.('generate');
 
     let skillContent = await runGenerate(research, [], message);
 
     // Stage 3: Validate (with retry loop)
     await updateStage(skillId, 'validate');
+    onProgress?.('validate');
 
     let validation = await runValidate(skillContent, research.abi || []);
 
@@ -41,9 +45,11 @@ export async function runPipeline(skillId, contractAddress, message) {
 
       // Retry: generate with feedback, then re-validate
       await updateStage(skillId, 'generate');
+      onProgress?.('generate');
       skillContent = await runGenerate(research, validation.errors, message);
 
       await updateStage(skillId, 'validate');
+      onProgress?.('validate');
       validation = await runValidate(skillContent, research.abi || []);
     }
 
