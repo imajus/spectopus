@@ -9,7 +9,7 @@
   "identity": {
     "standard": "ERC-8004",
     "chain": "eip155:8453",
-    "registrationTx": null
+    "registrationTx": "0xf0a156cd31094f4e5e36d9bb17a246c3cee19493a668895bc14fa0de1af99f93"
   },
   "tools": [
     {
