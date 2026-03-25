@@ -1,6 +1,6 @@
 # Spectopus
 
-<img width="256" height="256" alt="IMG_SEGMENT_20260323_001020" src="https://github.com/user-attachments/assets/4bea0cea-0656-4c9f-babf-20b0b7183955" />
+<img width="256" height="256" alt="IMG_SEGMENT_20260323_001020" src="./assets/logo.png" />
 
 **AI-powered skill generator for smart contracts.** Give it a contract address, get back a ready-to-use [Agent Skill](https://agentskills.io) — a portable SKILL.md file any AI agent can consume. Pay per use via [x402](https://x402.org), no accounts needed.
 
