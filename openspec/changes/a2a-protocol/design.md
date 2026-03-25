@@ -1,42 +1,46 @@
 ## Context
 
-Spectopus is an Express server that generates SKILL.md files for smart contracts via a 3-stage async pipeline. It currently uses x402 payment middleware on REST endpoints. The Google A2A protocol (v0.3.0, Linux Foundation) provides a standardized way for agents to discover and interact with each other via Agent Cards and JSON-RPC.
+Spectopus has REST endpoints with x402 payments but no standard agent-to-agent protocol. The A2A protocol (v0.3.0, Linux Foundation) enables agent interoperability. The a2a-x402 extension (v0.2) adds payment negotiation within A2A via metadata fields.
 
-The official `@a2a-js/sdk` package provides Express middleware for serving A2A Agent Cards and handling JSON-RPC requests, with built-in task store and request handling.
+The official `@a2a-js/sdk` provides Express middleware for A2A Agent Cards and JSON-RPC handling. Payment verification/settlement uses the same `x402` packages as the REST middleware.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Make Spectopus discoverable by any A2A-compatible agent
-- Map the existing async pipeline to A2A task lifecycle
-- Keep existing x402 REST endpoints working unchanged
-- Quick, minimal implementation using the official SDK
+- A2A Agent Card at standard path with x402 extension declared
+- JSON-RPC endpoint handling `message/send` and `tasks/get` with x402 payment flow
+- Payment required for skill generation (same price as REST: $0.10 USDC)
+- Pipeline status events published as A2A task state transitions
 
 **Non-Goals:**
-- Streaming support (pipeline is async, not suitable for SSE streaming)
+- Streaming support (pipeline is async)
 - Push notifications
-- Authentication on A2A endpoints (keeping it open for hackathon)
-- Replacing x402 payment flow with A2A
+- Authentication on A2A endpoints beyond x402 payments
+- Separate pricing for A2A vs REST
 
 ## Decisions
 
-### Use `@a2a-js/sdk` official SDK
-**Rationale**: Official JS SDK from the a2aproject org, implements spec v0.3.0, provides Express middleware out of the box. Alternatives like hand-rolling JSON-RPC handlers would be more work with no benefit.
+### a2a-x402 Standalone Flow
+**Rationale**: The Standalone Flow transports payment requirements and payloads via `task.status.message.metadata` fields (`x402.payment.required`, `x402.payment.payload`, `x402.payment.status`). This is simpler than the Embedded Flow (which nests inside AP2 commerce protocol). The executor handles the full state machine: `payment-required` → `payment-submitted` → `payment-verified` → `payment-completed`.
 
-### Mount A2A at `/a2a` subpath
-**Rationale**: Keeps A2A JSON-RPC separate from existing REST routes. The agent card is at `/.well-known/agent-card.json` (standard path). The JSON-RPC handler is at `/a2a` to avoid conflicts with existing `POST /` or payment middleware.
+### Same facilitator as REST endpoints
+**Rationale**: The A2A executor uses the same PayAI facilitator and `x402` package functions (`useFacilitator`, `exact.evm.decodePayment`) as the REST payment middleware. This ensures consistent payment handling and settlement.
 
-### Use InMemoryTaskStore (not S3)
-**Rationale**: The SDK provides `InMemoryTaskStore` for task lifecycle tracking. The actual SKILL.md content is already stored in S3. Using in-memory for A2A task state keeps it simple — tasks are ephemeral protocol state, not persistent data. Acceptable for a hackathon.
+### InMemoryTaskStore
+**Rationale**: The `@a2a-js/sdk` provides `InMemoryTaskStore` for A2A task lifecycle. Actual skill content persists in Filecoin — A2A tasks are ephemeral protocol state. Lost on restart, same as pipeline state.
 
-### Synchronous executor with polling
-**Rationale**: The existing pipeline is async (fire-and-forget). The A2A executor will run the pipeline to completion within `execute()`, publishing status events as stages progress. Since the SDK manages the task lifecycle, we publish submitted → working (per stage) → completed/failed events via the EventBus. Clients poll via `GetTask`.
+### Two-step executor: payment then pipeline
+**Rationale**: The executor handles two `message/send` calls per skill generation:
+1. First message (contract address) → respond with `input-required` + payment requirements
+2. Second message (signed payment) → verify, settle, run pipeline, return completed task
 
-### Keep `agent.json` (ERC-8004) separate
-**Rationale**: Different standard, different purpose. A2A Agent Card has its own schema and lives at a different path. No reason to merge or replace.
+This maps to the a2a-x402 state machine cleanly.
+
+### Pipeline onProgress callback
+**Rationale**: Adding an optional `onProgress` callback to `runPipeline` is backward compatible (existing callers pass 3 args). The A2A executor uses it to publish `working` status events with stage names.
 
 ## Risks / Trade-offs
 
-- **[In-memory task store lost on restart]** → Acceptable for hackathon. Tasks are ephemeral; actual skills persist in S3.
-- **[No auth on A2A endpoints]** → For hackathon demo. Production would add API key or OAuth via SDK's `UserBuilder`.
-- **[Long-running execute()]** → Pipeline takes minutes. The SDK handles this — the task stays in "working" state while the executor runs. Clients poll via GetTask.
+- **[Long-running executor]** → Pipeline takes minutes. The SDK manages task state; clients poll via `tasks/get`. The `working` state with stage messages provides progress visibility.
+- **[@a2a-js/sdk API surface]** → SDK may differ from assumptions. Read SDK source during implementation. The executor pattern is standard — adapt as needed.
+- **[Payment before execution]** → Client pays before knowing if generation succeeds. Same as REST flow. Failed pipeline = lost payment (acceptable for PoC).

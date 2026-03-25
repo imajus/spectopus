@@ -1,26 +1,30 @@
 ## ADDED Requirements
 
-### Requirement: Agent Card discovery endpoint
-The system SHALL serve an A2A Agent Card at `GET /.well-known/agent-card.json` conforming to A2A protocol v0.3.0.
+### Requirement: A2A Agent Card at well-known path
+The system SHALL serve an A2A Agent Card JSON at `GET /.well-known/agent-card.json` conforming to A2A protocol v0.3.0.
 
-#### Scenario: Successful agent card retrieval
-- **WHEN** a client sends `GET /.well-known/agent-card.json`
-- **THEN** the system returns HTTP 200 with `Content-Type: application/json` containing a valid A2A Agent Card
+#### Scenario: Agent Card returned
+- **WHEN** a client sends GET `/.well-known/agent-card.json`
+- **THEN** the system SHALL respond with 200 and `Content-Type: application/json`
+- **THEN** the response SHALL include `name: "Spectopus"`, `protocolVersion: "0.3.0"`, and `url` pointing to the `/a2a` endpoint
 
-### Requirement: Agent Card contains required fields
-The Agent Card SHALL include: `name`, `description`, `url`, `provider`, `version`, `protocolVersion` (set to "0.3.0"), `capabilities`, `defaultInputModes`, `defaultOutputModes`, and `skills`.
+### Requirement: x402 extension declared in capabilities
+The Agent Card SHALL declare the a2a-x402 extension in `capabilities.extensions` with URI `https://github.com/google-agentic-commerce/a2a-x402/blob/main/spec/v0.2` and `required: true`.
 
-#### Scenario: Agent card has correct identity
-- **WHEN** the agent card is retrieved
-- **THEN** `name` is "Spectopus", `version` is the package version, and `protocolVersion` is "0.3.0"
+#### Scenario: x402 extension present
+- **WHEN** the Agent Card is examined
+- **THEN** `capabilities.extensions` SHALL contain an entry with the a2a-x402 v0.2 URI and `required: true`
 
-#### Scenario: Agent card declares capabilities
-- **WHEN** the agent card is retrieved
-- **THEN** `capabilities.streaming` is false, `capabilities.pushNotifications` is false, and `capabilities.stateTransitionHistory` is true
+### Requirement: Skill definition in Agent Card
+The Agent Card SHALL include one skill with `id: "generate_skill"` describing the contract skill generation capability.
 
-### Requirement: Agent Card declares generate_skill skill
-The Agent Card SHALL declare a single skill with id `generate_skill` that describes smart contract skill generation.
+#### Scenario: Skill listed
+- **WHEN** the Agent Card is examined
+- **THEN** `skills` SHALL contain an entry with `id: "generate_skill"` and a description mentioning smart contract and Base Mainnet
 
-#### Scenario: Skill definition is complete
-- **WHEN** the agent card is retrieved
-- **THEN** the `skills` array contains one entry with `id: "generate_skill"`, a `name`, `description`, `tags` including "smart-contract", and `examples` showing contract address usage
+### Requirement: Agent Card not paywalled
+The `GET /.well-known/agent-card.json` endpoint SHALL NOT require x402 payment.
+
+#### Scenario: Agent Card accessible without payment
+- **WHEN** a client sends GET `/.well-known/agent-card.json` without X-PAYMENT header
+- **THEN** the system SHALL respond with 200 (not 402)

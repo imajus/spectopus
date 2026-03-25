@@ -1,28 +1,27 @@
 ## Why
 
-Spectopus currently exposes a custom REST API with x402 payment middleware. The Google A2A (Agent-to-Agent) protocol is an open standard (donated to the Linux Foundation) that enables interoperability between AI agents across frameworks. Adding A2A support makes Spectopus discoverable and usable by any A2A-compatible agent — expanding reach beyond x402-only clients.
+Spectopus is only accessible via custom REST + x402 endpoints. The Google A2A (Agent-to-Agent) protocol is an open standard for agent interoperability. Adding A2A with x402 payments (a2a-x402 Standalone Flow) makes Spectopus usable by any A2A-compatible agent while still requiring payment for inference and generation.
 
 ## What Changes
 
-- Serve an A2A Agent Card at `/.well-known/agent-card.json` for agent discovery
-- Add A2A JSON-RPC endpoint (via `@a2a-js/sdk`) that accepts `SendMessage` requests and maps them to the existing generation pipeline
-- Implement an `AgentExecutor` that bridges A2A task lifecycle to Spectopus's async pipeline (submitted → working → completed/failed)
-- A2A wraps the existing x402 flow — the executor calls the pipeline internally while x402 endpoints remain untouched
-- Keep existing `agent.json` (ERC-8004) as-is — it serves a different purpose
+- Serve A2A Agent Card at `GET /.well-known/agent-card.json` (v0.3.0) with x402 extension declared
+- Add A2A JSON-RPC endpoint at `POST /a2a` via `@a2a-js/sdk`
+- Implement AgentExecutor with x402 payment flow: initial request → payment-required → payment-submitted → verify/settle → pipeline execution → completed with receipts
+- Use facilitator verify/settle from `x402` package for A2A payment processing (same facilitator as REST)
+- Add optional `onProgress` callback to pipeline for A2A status events
 
 ## Capabilities
 
 ### New Capabilities
-- `a2a-agent-card`: A2A Agent Card served at `/.well-known/agent-card.json` describing Spectopus skills, capabilities, and protocol version
-- `a2a-executor`: AgentExecutor implementation that maps A2A SendMessage to the generation pipeline, publishing task status events as stages progress
+- `a2a-agent-card`: A2A Agent Card with x402 extension, served at standard well-known path
+- `a2a-x402-executor`: AgentExecutor implementing a2a-x402 Standalone Flow — payment negotiation, verification, settlement, and pipeline bridging
 
 ### Modified Capabilities
 
-(none — existing x402 REST endpoints are unchanged)
-
 ## Impact
 
-- **Dependencies**: Add `@a2a-js/sdk` package
-- **Code**: New files under `src/a2a/`, minor modification to `src/app.js` (mount A2A handlers) and `src/pipeline/index.js` (optional progress callback)
-- **APIs**: New endpoint at `/a2a` (JSON-RPC) + `/.well-known/agent-card.json` (GET)
-- **Existing endpoints**: No changes — `POST /skills/generate` and `GET /skills/:id` continue working with x402
+- New files: `src/a2a/agent-card.js`, `src/a2a/executor.js`, `src/a2a/index.js`
+- `src/app.js` — mount A2A routes before payment middleware
+- `src/pipeline/index.js` — add optional `onProgress` callback (backward compatible)
+- `package.json` — add `@a2a-js/sdk`
+- Existing x402 REST endpoints unchanged
