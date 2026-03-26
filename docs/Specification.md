@@ -32,8 +32,8 @@
 
 - **Runtime:** Node.js (ES modules)
 - **Framework:** Express
-- **Payments:** `x402-express` (Coinbase v1, compatible with thirdweb facilitator) — USDC on Base Mainnet
-- **Discovery:** x402 Bazaar (auto-indexed by thirdweb facilitator during payment settlement)
+- **Payments:** `@x402/express` v2 + PayAI facilitator (`HTTPFacilitatorClient`) + `ExactEvmScheme` — USDC on Base Mainnet
+- **Discovery:** x402 Bazaar (auto-indexed by PayAI facilitator during payment settlement, via `declareDiscoveryExtension`)
 - **Storage:** S3-compatible object storage (`@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`)
 - **AI:** LangChain (`@langchain/core`, `@langchain/openai`) + LangGraph (`@langchain/langgraph`) for ReAct agent
 - **LLM:** OpenAI GPT-5
@@ -68,9 +68,9 @@ Each pipeline run creates a structured log via `src/pipeline/logger.js`. The log
 - **Fire-and-forget pipeline** — API returns immediately, caller polls GET for progress
 - **LangChain over Vercel AI SDK** — migrated due to critical multi-step tool-calling bugs in `ai@6`; LangGraph ReAct agent handles the research loop reliably
 - **Blockscout over Etherscan** — Etherscan V1 API deprecated, V2 requires paid plan for Base; Blockscout is free with no API key
-- **Coinbase x402 v1 over @x402/core v2** — thirdweb facilitator returns x402Version:1, incompatible with `@x402/core` v2.7.0's x402Version:2
+- **@x402/express v2 with PayAI facilitator** — PayAI supports x402Version:2, enabling `@x402/express` v2 and Bazaar discovery via `declareDiscoveryExtension`
 - **x402 per-route** — only skill endpoints require payment; health check is free
-- **Bazaar auto-indexed** — no POST registration API; thirdweb facilitator indexes resources during payment settlement
+- **Bazaar auto-indexed** — no POST registration API; PayAI facilitator indexes resources during payment settlement
 
 ## Hackathon Artifacts
 

@@ -1,35 +1,52 @@
-import { paymentMiddleware } from 'x402-express';
-import { createThirdwebClient } from 'thirdweb';
-import { facilitator as createFacilitator } from 'thirdweb/x402';
+import { paymentMiddleware, x402ResourceServer } from '@x402/express';
+import { ExactEvmScheme } from '@x402/evm/exact/server';
+import { HTTPFacilitatorClient } from '@x402/core/server';
+import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
 import { createPlaceholder, getSkill, getLogUrl } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
 import { isValidAddress, sanitizeMessage } from '../guardrails.js';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const DEFAULT_FACILITATOR_URL = 'https://facilitator.payai.network/';
 
 function buildPaymentMiddleware(payToAddress) {
-  const client = createThirdwebClient({ secretKey: process.env.THIRDWEB_SECRET_KEY });
-  const thirdwebFacilitator = createFacilitator({ client, serverWalletAddress: payToAddress });
+  const facilitatorUrl = process.env.X402_FACILITATOR_URL || DEFAULT_FACILITATOR_URL;
+  const facilitatorClient = new HTTPFacilitatorClient({ url: facilitatorUrl });
+  const resourceServer = new x402ResourceServer(facilitatorClient)
+    .register('eip155:8453', new ExactEvmScheme());
+
   return paymentMiddleware(
-    payToAddress,
     {
       'POST /skills/generate': {
-        price: '$0.10',
-        network: 'base',
-        config: { description: 'Generate an Agent Skill for a smart contract ($0.10 USDC)' },
+        accepts: {
+          scheme: 'exact',
+          price: '$0.10',
+          network: 'eip155:8453',
+          payTo: payToAddress,
+        },
+        description: 'Generate an Agent Skill for a smart contract ($0.10 USDC)',
+        ...declareDiscoveryExtension({
+          bodyType: 'json',
+          input: { contractAddress: '0x...', message: 'optional context' },
+        }),
       },
-      'GET /skills/[id]': {
-        price: '$0.01',
-        network: 'base',
-        config: { description: 'Download a generated Agent Skill ($0.01 USDC)' },
+      'GET /skills/:id': {
+        accepts: {
+          scheme: 'exact',
+          price: '$0.01',
+          network: 'eip155:8453',
+          payTo: payToAddress,
+        },
+        description: 'Download a generated Agent Skill ($0.01 USDC)',
+        ...declareDiscoveryExtension({}),
       },
     },
-    thirdwebFacilitator,
+    resourceServer,
   );
 }
 
 export function registerSkillsRoutes(app) {
-  const payToAddress = process.env.THIRDWEB_SERVER_WALLET_ADDRESS;
+  const payToAddress = process.env.PAY_TO_ADDRESS;
   if (payToAddress) {
     app.use(buildPaymentMiddleware(payToAddress));
   }
