@@ -1,13 +1,19 @@
 import { randomUUID } from 'node:crypto';
-import { createPlaceholder } from '../storage.js';
+import { HTTPFacilitatorClient, x402ResourceServer } from '@x402/core/server';
+import { ExactEvmScheme } from '@x402/evm/exact/server';
+import { facilitator as payaiFacilitator } from '@payai/facilitator';
+import { createPlaceholder, getSkill } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
 import { isValidAddress } from '../guardrails.js';
 
 const ADDRESS_REGEX = /0x[0-9a-fA-F]{40}/;
 
+// In-memory store: taskId → { contractAddress, paymentRequirements }
+const taskState = new Map();
+
 /**
- * Extract a contract address from a user message.
- * Supports JSON parts with contractAddress field or plain text containing an Ethereum address.
+ * Extract a contract address from the user message parts.
+ * Tries JSON parse first, then plain text regex.
  *
  * @param {import('@a2a-js/sdk/server').RequestContext} requestContext
  * @returns {string|null}
@@ -26,10 +32,10 @@ function extractContractAddress(requestContext) {
         return parsed.contractAddress;
       }
     } catch {
-      // Not JSON, continue
+      // Not JSON — fall through to regex
     }
 
-    // Try plain text
+    // Regex fallback
     const match = text.match(ADDRESS_REGEX);
     if (match && isValidAddress(match[0])) {
       return match[0];
@@ -41,15 +47,8 @@ function extractContractAddress(requestContext) {
 
 /**
  * Build a TaskStatusUpdateEvent.
- *
- * @param {string} taskId
- * @param {string} contextId
- * @param {string} state
- * @param {string} messageText
- * @param {boolean} final
- * @returns {import('@a2a-js/sdk/server').AgentExecutionEvent}
  */
-function statusEvent(taskId, contextId, state, messageText, final = false) {
+function statusEvent(taskId, contextId, state, messageText, metadata, final = false) {
   return {
     kind: 'status-update',
     taskId,
@@ -58,9 +57,10 @@ function statusEvent(taskId, contextId, state, messageText, final = false) {
       state,
       message: {
         role: 'agent',
-        parts: [{ kind: 'text', text: messageText }],
-        messageId: randomUUID(),
         kind: 'message',
+        messageId: randomUUID(),
+        parts: [{ kind: 'text', text: messageText }],
+        ...(metadata ? { metadata } : {}),
       },
       timestamp: new Date().toISOString(),
     },
@@ -74,10 +74,34 @@ const STAGE_MESSAGES = {
   validate: 'Validating generated skill against spec...',
 };
 
-export class SpectopusExecutor {
-  execute = async (requestContext, eventBus) => {
-    const { taskId, contextId } = requestContext;
+function buildResourceServer(payToAddress) {
+  const facilitatorClient = new HTTPFacilitatorClient(payaiFacilitator);
+  return new x402ResourceServer(facilitatorClient).register('eip155:8453', new ExactEvmScheme());
+}
 
+export class SpectopusExecutor {
+  constructor(payToAddress) {
+    this.payToAddress = payToAddress ?? process.env.PAY_TO_ADDRESS ?? '';
+    this._resourceServer = buildResourceServer(this.payToAddress);
+  }
+
+  execute = async (requestContext, eventBus) => {
+    const { taskId, contextId, task: existingTask, userMessage } = requestContext;
+
+    // --- Second message: payment payload submission ---
+    const paymentPayload = userMessage?.metadata?.['x402.payment.payload'];
+    if (paymentPayload && existingTask) {
+      await this._handlePaymentSubmission(
+        taskId,
+        contextId,
+        paymentPayload,
+        existingTask,
+        eventBus,
+      );
+      return;
+    }
+
+    // --- First message: contract address ---
     const contractAddress = extractContractAddress(requestContext);
 
     if (!contractAddress) {
@@ -87,8 +111,8 @@ export class SpectopusExecutor {
           contextId,
           'input-required',
           'Please provide a valid Ethereum contract address on Base Mainnet. ' +
-            'You can send it as plain text (e.g. "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913") ' +
-            'or as JSON (e.g. {"contractAddress": "0x..."}).',
+            'You can send it as plain text or as JSON: {"contractAddress": "0x..."}',
+          { 'x402.payment.status': 'address-required' },
           true,
         ),
       );
@@ -96,23 +120,188 @@ export class SpectopusExecutor {
       return;
     }
 
+    // Build payment requirements
+    let paymentRequirements;
+    try {
+      const reqs = await this._resourceServer.buildPaymentRequirements({
+        scheme: 'exact',
+        network: 'eip155:8453',
+        price: '$0.10',
+        payTo: this.payToAddress,
+      });
+      paymentRequirements = reqs[0];
+    } catch (err) {
+      // If payment setup fails (e.g. no PAY_TO_ADDRESS), proceed without payment gate
+      paymentRequirements = null;
+    }
+
+    // Store state for the second call
+    taskState.set(taskId, { contractAddress, paymentRequirements });
+
+    if (paymentRequirements) {
+      eventBus.publish(
+        statusEvent(
+          taskId,
+          contextId,
+          'input-required',
+          `Contract address accepted: ${contractAddress}. ` +
+            'Please submit a signed payment payload of $0.10 USDC on Base to proceed.',
+          {
+            'x402.payment.status': 'payment-required',
+            'x402.payment.required': paymentRequirements,
+          },
+          true,
+        ),
+      );
+    } else {
+      // No payment configured — run pipeline directly
+      await this._runPipelineAndPublish(taskId, contextId, contractAddress, null, eventBus);
+    }
+
+    eventBus.finished();
+  };
+
+  cancelTask = async (taskId, eventBus) => {
+    taskState.delete(taskId);
+    eventBus.publish({
+      kind: 'status-update',
+      taskId,
+      contextId: '',
+      status: {
+        state: 'canceled',
+        timestamp: new Date().toISOString(),
+      },
+      final: true,
+    });
+    eventBus.finished();
+  };
+
+  async _handlePaymentSubmission(taskId, contextId, paymentPayload, existingTask, eventBus) {
+    const state = taskState.get(taskId);
+
+    if (!state) {
+      eventBus.publish(
+        statusEvent(taskId, contextId, 'failed', 'Task state not found. Please start a new request.', null, true),
+      );
+      eventBus.finished();
+      return;
+    }
+
+    const { contractAddress, paymentRequirements } = state;
+
+    // Verify payment
+    eventBus.publish(
+      statusEvent(taskId, contextId, 'working', 'Verifying payment...', {
+        'x402.payment.status': 'payment-submitted',
+      }),
+    );
+
+    let settleResponse;
+    try {
+      const verifyResponse = await this._resourceServer.verifyPayment(
+        paymentPayload,
+        paymentRequirements,
+      );
+
+      if (!verifyResponse.isValid) {
+        eventBus.publish(
+          statusEvent(
+            taskId,
+            contextId,
+            'failed',
+            `Payment verification failed: ${verifyResponse.invalidReason ?? 'unknown reason'}`,
+            {
+              'x402.payment.status': 'payment-failed',
+              'x402.payment.error': verifyResponse.invalidReason ?? 'verification_failed',
+            },
+            true,
+          ),
+        );
+        eventBus.finished();
+        return;
+      }
+
+      eventBus.publish(
+        statusEvent(taskId, contextId, 'working', 'Payment verified. Settling on-chain...', {
+          'x402.payment.status': 'payment-verified',
+        }),
+      );
+
+      settleResponse = await this._resourceServer.settlePayment(paymentPayload, paymentRequirements);
+
+      if (!settleResponse.success) {
+        eventBus.publish(
+          statusEvent(
+            taskId,
+            contextId,
+            'failed',
+            `Payment settlement failed: ${settleResponse.errorReason ?? 'unknown error'}`,
+            {
+              'x402.payment.status': 'payment-failed',
+              'x402.payment.error': settleResponse.errorReason ?? 'settlement_failed',
+            },
+            true,
+          ),
+        );
+        eventBus.finished();
+        return;
+      }
+    } catch (err) {
+      eventBus.publish(
+        statusEvent(
+          taskId,
+          contextId,
+          'failed',
+          `Payment processing error: ${err.message}`,
+          {
+            'x402.payment.status': 'payment-failed',
+            'x402.payment.error': err.message,
+          },
+          true,
+        ),
+      );
+      eventBus.finished();
+      return;
+    }
+
+    taskState.delete(taskId);
+
+    await this._runPipelineAndPublish(
+      taskId,
+      contextId,
+      contractAddress,
+      settleResponse,
+      eventBus,
+    );
+
+    eventBus.finished();
+  }
+
+  async _runPipelineAndPublish(taskId, contextId, contractAddress, settleResponse, eventBus) {
     const skillId = randomUUID();
 
-    // Create S3 placeholder so the REST API can also serve this skill
     await createPlaceholder(skillId, { contractAddress });
 
     eventBus.publish(
-      statusEvent(taskId, contextId, 'working', `Starting skill generation for ${contractAddress}...`),
+      statusEvent(
+        taskId,
+        contextId,
+        'working',
+        `Starting skill generation for ${contractAddress}...`,
+        settleResponse ? { 'x402.payment.status': 'payment-completed' } : null,
+      ),
     );
+
+    const receipts = settleResponse
+      ? [{ transaction: settleResponse.transaction, network: settleResponse.network }]
+      : [];
 
     try {
       await runPipeline(skillId, contractAddress, undefined, (stage) => {
         const msg = STAGE_MESSAGES[stage] ?? `Processing stage: ${stage}`;
-        eventBus.publish(statusEvent(taskId, contextId, 'working', msg));
+        eventBus.publish(statusEvent(taskId, contextId, 'working', msg, null));
       });
 
-      // Pipeline succeeded — fetch result from storage to get skill content
-      const { getSkill } = await import('../storage.js');
       const skill = await getSkill(skillId);
       const skillContent = skill?.content ?? '';
 
@@ -130,31 +319,27 @@ export class SpectopusExecutor {
         final: false,
       });
 
-      // Publish completed status
       eventBus.publish(
-        statusEvent(taskId, contextId, 'completed', `Skill generation complete. Skill ID: ${skillId}`, true),
+        statusEvent(
+          taskId,
+          contextId,
+          'completed',
+          `Skill generation complete. Skill ID: ${skillId}`,
+          { 'x402.payment.receipts': receipts },
+          true,
+        ),
       );
     } catch (err) {
       eventBus.publish(
-        statusEvent(taskId, contextId, 'failed', `Skill generation failed: ${err.message}`, true),
+        statusEvent(
+          taskId,
+          contextId,
+          'failed',
+          `Skill generation failed: ${err.message}`,
+          { 'x402.payment.receipts': receipts },
+          true,
+        ),
       );
     }
-
-    eventBus.finished();
-  };
-
-  cancelTask = async (taskId, eventBus) => {
-    // Pipeline runs to completion; cancellation just marks the task canceled
-    eventBus.publish({
-      kind: 'status-update',
-      taskId,
-      contextId: '',
-      status: {
-        state: 'canceled',
-        timestamp: new Date().toISOString(),
-      },
-      final: true,
-    });
-    eventBus.finished();
-  };
+  }
 }
