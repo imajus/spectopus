@@ -8,6 +8,9 @@ vi.mock('@filoz/synapse-sdk', () => {
     constructor() {
       this.storage = {
         prepare: vi.fn(async () => ({ transaction: null, costs: {} })),
+        getDefaultContext: vi.fn(async () => ({
+          getPieceUrl: (pieceCid) => `https://pdp.example.com/piece/${pieceCid}`,
+        })),
         upload: vi.fn(async (data) => {
           const cid = `bafy${++uploadCount}`;
           uploadedPieces[cid] = new TextDecoder().decode(data);
@@ -42,6 +45,10 @@ vi.mock('viem/accounts', () => ({
   privateKeyToAccount: vi.fn(() => ({ address: '0xMOCK', type: 'local' })),
 }));
 
+vi.mock('multiformats/cid', () => ({
+  CID: { parse: vi.fn((str) => ({ toString: () => str })) },
+}));
+
 beforeEach(async () => {
   Object.keys(uploadedPieces).forEach((k) => delete uploadedPieces[k]);
   uploadCount = 0;
@@ -67,7 +74,7 @@ describe('createSession + getSession', () => {
       stage: 'research',
       contractAddress: '0xDEAD',
       chainId: 8453,
-      skillId: null,
+      skillCid: null,
       logCid: null,
     });
   });
@@ -112,22 +119,21 @@ describe('markFailed', () => {
 });
 
 describe('markReady', () => {
-  it('uploads to Filecoin and stores skillId (PieceCID)', async () => {
+  it('uploads to Filecoin and stores skillCid (PieceCID)', async () => {
     const { createSession, markReady, getSession } = await getStorage();
     await createSession('abc123', { contractAddress: '0xDEAD' });
     await markReady('abc123', '# My Skill\n');
     const s = await getSession('abc123');
     expect(s.status).toBe('ready');
-    expect(s.skillId).toBeTruthy();
-    expect(s.skillId).toMatch(/^bafy/);
+    expect(s.skillCid.toString()).toMatch(/^bafy/);
   });
 
-  it('does not set logUrl', async () => {
+  it('does not set logCid', async () => {
     const { createSession, markReady, getSession } = await getStorage();
     await createSession('abc123', { contractAddress: '0xDEAD' });
     await markReady('abc123', '# Skill');
     const s = await getSession('abc123');
-    expect(s.logUrl).toBeNull();
+    expect(s.logCid).toBeNull();
   });
 
   it('throws for unknown sid', async () => {
@@ -151,30 +157,16 @@ describe('putLog + getLogUrl', () => {
   });
 });
 
-describe('fetchSkill', () => {
-  it('returns cached content after markReady', async () => {
-    const { createSession, markReady, getSession, fetchSkill } = await getStorage();
+describe('getSkillUrl', () => {
+  it('returns PDP URL for a known PieceCID', async () => {
+    const { createSession, markReady, getSession, getSkillUrl } = await getStorage();
     await createSession('abc123', { contractAddress: '0xDEAD' });
-    await markReady('abc123', '# Cached Skill');
+    await markReady('abc123', '# My Skill');
     const s = await getSession('abc123');
-    const content = await fetchSkill(s.skillId);
-    expect(content).toBe('# Cached Skill');
-  });
-
-  it('downloads from Filecoin on cache miss', async () => {
-    const { createSession, markReady, getSession, fetchSkill } = await getStorage();
-    await createSession('abc123', { contractAddress: '0xDEAD' });
-    await markReady('abc123', '# Download Skill');
-    const s = await getSession('abc123');
-    // Simulate cache miss by fetching with a raw CID string (different object)
-    // The mock download returns from uploadedPieces which was populated by upload
-    const content = await fetchSkill(s.skillId);
-    expect(content).toContain('# Download Skill');
-  });
-
-  it('throws for unknown PieceCID', async () => {
-    const { fetchSkill } = await getStorage();
-    await expect(fetchSkill('bafy_unknown')).rejects.toThrow();
+    const skillCidStr = s.skillCid.toString();
+    const url = await getSkillUrl(skillCidStr);
+    expect(url).toContain('pdp.example.com');
+    expect(url).toContain(skillCidStr);
   });
 });
 

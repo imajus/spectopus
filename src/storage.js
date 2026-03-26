@@ -1,4 +1,5 @@
 import { Synapse, calibration, mainnet } from '@filoz/synapse-sdk';
+import { asPieceCID } from '@filoz/synapse-core/piece';
 import { privateKeyToAccount } from 'viem/accounts';
 
 const MIN_PIECE_SIZE = 127;
@@ -7,11 +8,8 @@ const INITIAL_PREPARE_SIZE = 1024n * 1024n; // 1 MiB
 /** @type {Synapse|null} */
 let synapse = null;
 
-/** @type {Map<string, import('./storage.d.ts').Session>} */
+/** @type {Map<string, Session>} */
 const sessions = new Map();
-
-/** @type {Map<string, string>} */
-const skillCache = new Map();
 
 export async function initStorage() {
   const privateKey = process.env.FILECOIN_PRIVATE_KEY;
@@ -42,14 +40,11 @@ function padToMinSize(content) {
 
 async function uploadToFilecoin(content, meta) {
   const data = padToMinSize(content);
-  const result = await getSynapse().storage.upload(data, {
-    pieceMetadata: meta,
-  });
+  const result = await getSynapse().storage.upload(data, { pieceMetadata: meta });
   if (!result.complete) {
     console.warn(`Upload incomplete: ${result.failedAttempts.length} copies failed`);
   }
-  const retrievalUrl = result.copies[0]?.retrievalUrl ?? null;
-  return { pieceCid: result.pieceCid.toString(), retrievalUrl, size: data.byteLength };
+  return { pieceCid: result.pieceCid };
 }
 
 // --- Session management (in-memory, ephemeral) ---
@@ -61,9 +56,8 @@ export async function createSession(sid, metadata) {
     stage: 'research',
     contractAddress: metadata.contractAddress,
     chainId: 8453,
-    skillId: null,
+    skillCid: null,
     logCid: null,
-    logUrl: null,
     error: null,
     createdAt: new Date().toISOString(),
   });
@@ -87,9 +81,7 @@ export async function markReady(sid, skillContent) {
     contentType: 'text/markdown',
   });
   session.status = 'ready';
-  session.skillId = pieceCid;
-  // Pre-populate cache so fetchSkill doesn't need a round-trip
-  skillCache.set(pieceCid, skillContent);
+  session.skillCid = pieceCid;
 }
 
 export async function markFailed(sid, error) {
@@ -99,9 +91,8 @@ export async function markFailed(sid, error) {
     stage: null,
     contractAddress: '',
     chainId: 8453,
-    skillId: null,
+    skillCid: null,
     logCid: null,
-    logUrl: null,
     error,
     createdAt: new Date().toISOString(),
   };
@@ -111,29 +102,24 @@ export async function markFailed(sid, error) {
 }
 
 export async function putLog(sid, logData) {
-  const { pieceCid, retrievalUrl } = await uploadToFilecoin(JSON.stringify(logData), {
+  const { pieceCid } = await uploadToFilecoin(JSON.stringify(logData), {
     filename: `logs/${sid}.json`,
     contentType: 'application/json',
   });
   const session = sessions.get(sid);
-  if (session) {
-    session.logCid = pieceCid;
-    if (retrievalUrl) session.logUrl = retrievalUrl;
-  }
+  if (session) session.logCid = pieceCid;
 }
 
 export async function getLogUrl(sid) {
   const session = sessions.get(sid);
-  return session?.logUrl ?? null;
+  if (!session?.logCid) return null;
+  const ctx = await getSynapse().storage.getDefaultContext();
+  return ctx.getPieceUrl(session.logCid);
 }
 
-// --- Skill retrieval (from Filecoin, permanent) ---
+// --- Skill retrieval (permanent — works after restart via Filecoin PDP URL) ---
 
-export async function fetchSkill(pieceCid) {
-  const cached = skillCache.get(pieceCid);
-  if (cached) return cached;
-  const bytes = await getSynapse().storage.download({ pieceCid });
-  const content = new TextDecoder().decode(bytes).trimEnd();
-  skillCache.set(pieceCid, content);
-  return content;
+export async function getSkillUrl(pieceCidStr) {
+  const ctx = await getSynapse().storage.getDefaultContext();
+  return ctx.getPieceUrl(asPieceCID(pieceCidStr));
 }

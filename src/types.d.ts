@@ -1,12 +1,13 @@
+type PieceCID = import("@filoz/synapse-sdk").PieceCID;
+
 interface Session {
   sid: string
   status: 'generating' | 'ready' | 'failed'
   stage: string | null
   contractAddress: string
   chainId: number
-  skillId: string | null
-  logCid: string | null
-  logUrl: string | null
+  skillCid: PieceCID | null
+  logCid: PieceCID | null
   error: string | null
   createdAt: string
 }
@@ -23,4 +24,4 @@ declare function markReady(sid: string, skillContent: string): Promise<void>
 declare function markFailed(sid: string, error: string): Promise<void>
 declare function putLog(sid: string, logData: object): Promise<void>
 declare function getLogUrl(sid: string): Promise<string | null>
-declare function fetchSkill(pieceCid: string): Promise<string>
+declare function getSkillUrl(pieceCid: string): Promise<string>

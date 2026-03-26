@@ -3,7 +3,7 @@ import { ExactEvmScheme } from '@x402/evm/exact/server';
 import { HTTPFacilitatorClient } from '@x402/core/server';
 import { facilitator as payaiFacilitator } from '@payai/facilitator';
 import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
-import { createSession, getSession, getLogUrl, fetchSkill } from '../storage.js';
+import { createSession, getSession, getLogUrl, getSkillUrl } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
 import { isValidAddress, sanitizeMessage } from '../guardrails.js';
 
@@ -74,7 +74,7 @@ export function registerSkillsRoutes(app) {
     if (!session) return res.status(404).json({ error: 'Session not found' });
     const status = session.status === 'generating' ? 'processing' : session.status;
     const response = { sessionId: sid, status, stage: session.stage };
-    if (session.skillId) response.skillId = session.skillId;
+    if (session.skillCid) response.skillId = session.skillCid.toString();
     if (session.status === 'ready' || session.status === 'failed') {
       response.logUrl = await getLogUrl(sid);
     }
@@ -85,10 +85,10 @@ export function registerSkillsRoutes(app) {
   app.get('/skills/:id', async (req, res) => {
     const { id } = req.params;
     try {
-      const content = await fetchSkill(id);
-      return res.type('text/markdown').send(content);
-    } catch (err) {
-      return res.status(404).json({ error: 'Skill not found on Filecoin' });
+      const skillUrl = await getSkillUrl(id);
+      return res.json({ skillUrl });
+    } catch {
+      return res.status(404).json({ error: 'Skill not found' });
     }
   });
 }

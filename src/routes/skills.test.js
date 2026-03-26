@@ -6,14 +6,14 @@ vi.mock('../storage.js', () => ({
   createSession: vi.fn().mockResolvedValue(undefined),
   getSession: vi.fn().mockResolvedValue(null),
   getLogUrl: vi.fn().mockResolvedValue('https://pdp.example.com/piece/bafylog1'),
-  fetchSkill: vi.fn().mockRejectedValue(new Error('Piece not found')),
+  getSkillUrl: vi.fn().mockResolvedValue('https://pdp.example.com/piece/bafySkill1'),
 }));
 
 vi.mock('../pipeline/index.js', () => ({
   runPipeline: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { createSession, getSession, getLogUrl, fetchSkill } from '../storage.js';
+import { createSession, getSession, getLogUrl, getSkillUrl } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
 
 beforeEach(() => {
@@ -103,7 +103,7 @@ describe('GET /skills/status/:sid', () => {
   });
 
   it('returns processing status when generating', async () => {
-    getSession.mockResolvedValueOnce({ sid: 'sid1', status: 'generating', stage: 'research', skillId: null, error: null });
+    getSession.mockResolvedValueOnce({ sid: 'sid1', status: 'generating', stage: 'research', skillCid: null, error: null });
     const app = createApp();
     const res = await request(app).get('/skills/status/sid1');
 
@@ -113,7 +113,7 @@ describe('GET /skills/status/:sid', () => {
   });
 
   it('returns skillId and logUrl when ready', async () => {
-    getSession.mockResolvedValueOnce({ sid: 'sid1', status: 'ready', stage: 'validate', skillId: 'bafySkill1', error: null });
+    getSession.mockResolvedValueOnce({ sid: 'sid1', status: 'ready', stage: 'validate', skillCid: 'bafySkill1', error: null });
     const app = createApp();
     const res = await request(app).get('/skills/status/sid1');
 
@@ -123,7 +123,7 @@ describe('GET /skills/status/:sid', () => {
   });
 
   it('returns error when failed', async () => {
-    getSession.mockResolvedValueOnce({ sid: 'sid1', status: 'failed', stage: 'validate', skillId: null, error: 'Validation failed' });
+    getSession.mockResolvedValueOnce({ sid: 'sid1', status: 'failed', stage: 'validate', skillCid: null, error: 'Validation failed' });
     const app = createApp();
     const res = await request(app).get('/skills/status/sid1');
 
@@ -133,21 +133,22 @@ describe('GET /skills/status/:sid', () => {
 });
 
 describe('GET /skills/:id', () => {
-  it('returns 404 when piece not found on Filecoin', async () => {
+  it('returns 404 when getSkillUrl throws', async () => {
+    getSkillUrl.mockRejectedValueOnce(new Error('not found'));
     const app = createApp();
     const res = await request(app).get('/skills/bafyUnknown');
 
     expect(res.status).toBe(404);
   });
 
-  it('returns skill content as markdown when found', async () => {
-    fetchSkill.mockResolvedValueOnce('# My Skill\nSome content');
+  it('returns skillUrl as JSON', async () => {
+    getSkillUrl.mockResolvedValueOnce('https://pdp.example.com/piece/bafySkill1');
     const app = createApp();
     const res = await request(app).get('/skills/bafySkill1');
 
     expect(res.status).toBe(200);
-    expect(res.type).toMatch(/markdown/);
-    expect(res.text).toBe('# My Skill\nSome content');
+    expect(res.type).toMatch(/json/);
+    expect(res.body).toEqual({ skillUrl: 'https://pdp.example.com/piece/bafySkill1' });
   });
 });
 
