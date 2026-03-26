@@ -19,7 +19,7 @@ Express server with two x402-paywalled endpoints:
 2. **Generate** — LLM produces SKILL.md following Agent Skills spec
 3. **Validate** — spec validation + ABI cross-check + safety check; retries Stage 2 on failure (max 2 loops)
 
-Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Completed skills are auto-indexed on thirdweb's x402 Bazaar via the thirdweb facilitator during payment settlement.
+Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Completed skills are auto-indexed on Coinbase x402 Bazaar via the PayAI facilitator during payment settlement.
 
 ### Pipeline Guardrails
 - `src/guardrails.js` — central utility: `isValidAddress` (regex), `sanitizeMessage` (strip control chars, 500-char limit), `scanOutput` (blocklist check)
@@ -38,8 +38,8 @@ LLM calls are logged per stage: `research-agent` (full ReAct message chain inclu
 
 ## Tech Stack
 
-- Node.js + Express + `x402-express` middleware (Coinbase v1, compatible with thirdweb)
-- thirdweb facilitator (`thirdweb/x402`) — requires `THIRDWEB_SECRET_KEY` + `THIRDWEB_SERVER_WALLET_ADDRESS`
+- Node.js + Express + `@x402/express` v2 middleware with PayAI facilitator
+- PayAI facilitator (`@payai/facilitator`) — requires `PAY_TO_ADDRESS`; free tier needs no API keys, paid tier uses `PAYAI_API_KEY_ID` + `PAYAI_API_KEY_SECRET`
 - LangChain (`@langchain/core`, `@langchain/openai`) + LangGraph (`@langchain/langgraph`) for ReAct agent — currently GPT-5
 - S3-compatible object storage (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`)
 - Basescan/Etherscan API for ABI fetching
@@ -47,11 +47,10 @@ LLM calls are logged per stage: `research-agent` (full ReAct message chain inclu
 ## x402 / Bazaar Notes
 
 - The Bazaar has no POST registration API — resources are auto-indexed by the facilitator during payment settlement
-- thirdweb facilitator docs: https://portal.thirdweb.com/x402/facilitator — thirdweb x402 API: https://api.thirdweb.com/llms.txt
-- **Do NOT use `@x402/express` with the thirdweb facilitator** — `@x402/core` v2.7.0 uses x402Version:2 but thirdweb API returns x402Version:1 (incompatible)
-- Use `x402-express` (Coinbase v1) instead: `paymentMiddleware(payToAddress, routes, thirdwebFacilitator)`
-- `x402-express` route format: `{ price: '$0.10', network: 'base', config: { description: '...' } }` — NOT `{ accepts: {...} }`
-- `x402-express` dynamic path segments: use `[id]` not `:id` in route patterns (Express routing still uses `/:id`)
+- Uses `@x402/express` v2: `paymentMiddleware(routes, resourceServer)` where `resourceServer` is `new x402ResourceServer(facilitatorClient).register('eip155:8453', new ExactEvmScheme())`
+- `@x402/express` v2 route format: `{ accepts: { scheme, price, network, payTo }, description, ...declareDiscoveryExtension(...) }`
+- `HTTPFacilitatorClient` from `@x402/core/server`, `ExactEvmScheme` from `@x402/evm/exact/server`
+- Bazaar discovery via `declareDiscoveryExtension` from `@x402/extensions/bazaar` — spread into route config
 
 ## Key Documentation
 
@@ -63,7 +62,7 @@ LLM calls are logged per stage: `research-agent` (full ReAct message chain inclu
 - [x402 — Open Payment Standard](https://docs.x402.org/introduction.md)
 - [x402 Bazaar — Discovery Layer](https://docs.x402.org/extensions/bazaar.md)
 - [Agent Skills Specification](https://agentskills.io/llms.txt)
-- [Thirdweb Documentation](https://portal.thirdweb.com/llms.txt)
+- [PayAI Facilitator](https://facilitator.payai.network/)
 
 ## Conventions
 
