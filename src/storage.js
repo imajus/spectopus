@@ -1,13 +1,17 @@
 import { Synapse, calibration, mainnet } from '@filoz/synapse-sdk';
 import { privateKeyToAccount } from 'viem/accounts';
 
+const MIN_PIECE_SIZE = 127;
+const INITIAL_PREPARE_SIZE = 1024n * 1024n; // 1 MiB
+
 /** @type {Synapse|null} */
 let synapse = null;
 
-/** @type {Map<string, import('./storage.d.ts').SkillEntry>} */
-const index = new Map();
+/** @type {Map<string, import('./storage.d.ts').Session>} */
+const sessions = new Map();
 
-const economics = { uploads: 0, bytes: 0 };
+/** @type {Map<string, string>} */
+const skillCache = new Map();
 
 export async function initStorage() {
   const privateKey = process.env.FILECOIN_PRIVATE_KEY;
@@ -15,6 +19,11 @@ export async function initStorage() {
   const chain = process.env.FILECOIN_CHAIN === 'mainnet' ? mainnet : calibration;
   const account = privateKeyToAccount(/** @type {`0x${string}`} */ (privateKey));
   synapse = Synapse.create({ account, chain, source: 'spectopus' });
+  const prep = await synapse.storage.prepare({ dataSize: INITIAL_PREPARE_SIZE });
+  if (prep.transaction) {
+    const { hash } = await prep.transaction.execute();
+    console.log(`Filecoin account funded and approved (tx: ${hash})`);
+  }
 }
 
 function getSynapse() {
@@ -22,101 +31,109 @@ function getSynapse() {
   return synapse;
 }
 
-async function uploadToFilecoin(content) {
-  const data = new TextEncoder().encode(content);
-  const result = await getSynapse().storage.upload(data);
-  economics.uploads += 1;
-  economics.bytes += data.byteLength;
-  const retrievalUrl = result.copies[0]?.retrievalUrl ?? null;
-  return { cid: result.pieceCid.toString(), retrievalUrl };
+function padToMinSize(content) {
+  const encoded = new TextEncoder().encode(content);
+  if (encoded.byteLength >= MIN_PIECE_SIZE) return encoded;
+  const padded = new Uint8Array(MIN_PIECE_SIZE);
+  padded.set(encoded);
+  padded.fill(0x20, encoded.byteLength); // pad with spaces
+  return padded;
 }
 
-export async function createPlaceholder(id, metadata) {
-  index.set(id, {
-    id,
+async function uploadToFilecoin(content, meta) {
+  const data = padToMinSize(content);
+  const result = await getSynapse().storage.upload(data, {
+    pieceMetadata: meta,
+  });
+  if (!result.complete) {
+    console.warn(`Upload incomplete: ${result.failedAttempts.length} copies failed`);
+  }
+  const retrievalUrl = result.copies[0]?.retrievalUrl ?? null;
+  return { pieceCid: result.pieceCid.toString(), retrievalUrl, size: data.byteLength };
+}
+
+// --- Session management (in-memory, ephemeral) ---
+
+export async function createSession(sid, metadata) {
+  sessions.set(sid, {
+    sid,
     status: 'generating',
     stage: 'research',
     contractAddress: metadata.contractAddress,
     chainId: 8453,
-    cid: null,
+    skillId: null,
     logCid: null,
     logUrl: null,
-    content: '',
     error: null,
     createdAt: new Date().toISOString(),
   });
 }
 
-export async function updateStage(id, stage) {
-  const entry = index.get(id);
-  if (!entry) throw new Error(`Skill ${id} not found`);
-  entry.stage = stage;
+export async function updateStage(sid, stage) {
+  const session = sessions.get(sid);
+  if (!session) throw new Error(`Session ${sid} not found`);
+  session.stage = stage;
 }
 
-export async function getSkill(id) {
-  return index.get(id) ?? null;
+export async function getSession(sid) {
+  return sessions.get(sid) ?? null;
 }
 
-export async function markReady(id, skillContent) {
-  const entry = index.get(id);
-  if (!entry) throw new Error(`Skill ${id} not found`);
-  const { cid, retrievalUrl } = await uploadToFilecoin(skillContent);
-  entry.status = 'ready';
-  entry.cid = cid;
-  entry.content = skillContent;
-  if (retrievalUrl) entry.logUrl = retrievalUrl; // store skill retrieval URL temporarily; overwritten by putLog
+export async function markReady(sid, skillContent) {
+  const session = sessions.get(sid);
+  if (!session) throw new Error(`Session ${sid} not found`);
+  const { pieceCid } = await uploadToFilecoin(skillContent, {
+    filename: `skills/${sid}.md`,
+    contentType: 'text/markdown',
+  });
+  session.status = 'ready';
+  session.skillId = pieceCid;
+  // Pre-populate cache so fetchSkill doesn't need a round-trip
+  skillCache.set(pieceCid, skillContent);
 }
 
-export async function markFailed(id, error) {
-  const entry = index.get(id) ?? {
-    id,
+export async function markFailed(sid, error) {
+  const session = sessions.get(sid) ?? {
+    sid,
     status: 'failed',
     stage: null,
     contractAddress: '',
     chainId: 8453,
-    cid: null,
+    skillId: null,
     logCid: null,
     logUrl: null,
-    content: error,
     error,
     createdAt: new Date().toISOString(),
   };
-  entry.status = 'failed';
-  entry.content = error;
-  entry.error = error;
-  if (!index.has(id)) index.set(id, entry);
+  session.status = 'failed';
+  session.error = error;
+  if (!sessions.has(sid)) sessions.set(sid, session);
 }
 
-export async function putLog(skillId, logData) {
-  const { cid, retrievalUrl } = await uploadToFilecoin(JSON.stringify(logData));
-  const entry = index.get(skillId);
-  if (entry) {
-    entry.logCid = cid;
-    if (retrievalUrl) entry.logUrl = retrievalUrl;
+export async function putLog(sid, logData) {
+  const { pieceCid, retrievalUrl } = await uploadToFilecoin(JSON.stringify(logData), {
+    filename: `logs/${sid}.json`,
+    contentType: 'application/json',
+  });
+  const session = sessions.get(sid);
+  if (session) {
+    session.logCid = pieceCid;
+    if (retrievalUrl) session.logUrl = retrievalUrl;
   }
 }
 
-export async function getLogUrl(skillId) {
-  const entry = index.get(skillId);
-  if (!entry?.logCid) return null;
-  if (entry.logUrl) return entry.logUrl;
-  // Fallback: construct PDP URL (requires provider serviceURL — not available without a live provider lookup)
-  return null;
+export async function getLogUrl(sid) {
+  const session = sessions.get(sid);
+  return session?.logUrl ?? null;
 }
 
-export function listSkills() {
-  return Array.from(index.values())
-    .filter((e) => e.status === 'ready')
-    .map(({ id, contractAddress, chainId, cid, createdAt }) => ({
-      id, contractAddress, chainId, cid, createdAt,
-    }));
-}
+// --- Skill retrieval (from Filecoin, permanent) ---
 
-export function getEconomics() {
-  const costPerByte = 0.000000002; // ~$0.000002/KB estimate
-  return {
-    uploads: economics.uploads,
-    bytes: economics.bytes,
-    estimatedCostUsd: economics.bytes * costPerByte,
-  };
+export async function fetchSkill(pieceCid) {
+  const cached = skillCache.get(pieceCid);
+  if (cached) return cached;
+  const bytes = await getSynapse().storage.download({ pieceCid });
+  const content = new TextDecoder().decode(bytes).trimEnd();
+  skillCache.set(pieceCid, content);
+  return content;
 }

@@ -10,7 +10,7 @@ const MAX_RETRIES = 2;
 /**
  * Run the full 3-stage generation pipeline for a skill.
  *
- * @param {string} skillId - UUID for the skill (S3 key)
+ * @param {string} skillId - session ID for tracking pipeline progress
  * @param {string} contractAddress - contract address to generate skill for
  * @param {string} [message] - optional user message / extra context
  */
