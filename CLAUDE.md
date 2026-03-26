@@ -10,9 +10,10 @@ Built for The Synthesis hackathon (Theme: Agents that trust) targeting Base Main
 
 ## Architecture
 
-Express server with two x402-paywalled endpoints:
-- `POST /skills/generate` ($0.10 USDC) — kicks off async 3-stage pipeline, returns skill ID
-- `GET /skills/:id` ($0.01 USDC) — returns SKILL.md content (or generation status if in progress)
+Express server with three endpoints:
+- `POST /skills/generate` ($0.10 USDC) — kicks off async 3-stage pipeline, returns `{ sessionId, statusUrl }`
+- `GET /skills/status/:sid` (free) — polls session state; returns `skillId` (Filecoin PieceCID) when ready
+- `GET /skills/:id` ($0.01 USDC) — fetches skill SKILL.md content from Filecoin by PieceCID (`:id`); survives restarts
 
 ### Generation Pipeline (async, 3 stages)
 1. **Research** — AI agent with tools (fetch ABI, fetch source code, detect ERC patterns) analyzes the contract
@@ -30,7 +31,7 @@ Pipeline progress is tracked in memory (in-memory Map). Final artifacts (skill c
 - Output scanned via `scanOutput()` before `markReady()` — throws on blocked patterns
 
 ### Execution Logging
-Each pipeline run creates a structured log via `src/pipeline/logger.js` (`createLogger(skillId, contractAddress)`). The logger accumulates stage transitions, decisions, tool calls, LLM inputs/outputs, and errors in memory, then uploads to Filecoin via `putLog()` on `flush()`. `GET /skills/:id` includes a `logUrl` (permanent Filecoin PDP HTTP URL) when status is `ready` or `failed`.
+Each pipeline run creates a structured log via `src/pipeline/logger.js` (`createLogger(skillId, contractAddress)`). The logger accumulates stage transitions, decisions, tool calls, LLM inputs/outputs, and errors in memory, then uploads to Filecoin via `putLog()` on `flush()`. `GET /skills/status/:sid` includes a `logUrl` (permanent Filecoin PDP HTTP URL) when status is `ready` or `failed`.
 
 Logger methods: `startStage(name)`, `endStage(result)`, `logDecision(message)`, `logToolCall(tool, input)`, `logLLMCall(label, input, output)`, `flush(status, error?)`.
 
