@@ -1,4 +1,4 @@
-export interface SkillEntry {
+interface SkillEntry {
   id: string;
   status: 'generating' | 'ready' | 'failed';
   stage: string | null;
@@ -12,17 +12,17 @@ export interface SkillEntry {
   createdAt: string;
 }
 
-export interface SkillMetadata {
+interface SkillMetadata {
   contractAddress: string;
 }
 
-export interface Economics {
+interface Economics {
   uploads: number;
   bytes: number;
   estimatedCostUsd: number;
 }
 
-export interface SkillSummary {
+interface SkillSummary {
   id: string;
   contractAddress: string;
   chainId: number;
@@ -30,13 +30,13 @@ export interface SkillSummary {
   createdAt: string;
 }
 
-export function initStorage(): Promise<void>
-export function createPlaceholder(id: string, metadata: SkillMetadata): Promise<void>
-export function updateStage(id: string, stage: string): Promise<void>
-export function getSkill(id: string): Promise<SkillEntry | null>
-export function markReady(id: string, skillContent: string): Promise<void>
-export function markFailed(id: string, error: string): Promise<void>
-export function putLog(skillId: string, logData: object): Promise<void>
-export function getLogUrl(skillId: string): Promise<string | null>
-export function listSkills(): SkillSummary[]
-export function getEconomics(): Economics
+declare function initStorage(): Promise<void>
+declare function createPlaceholder(id: string, metadata: SkillMetadata): Promise<void>
+declare function updateStage(id: string, stage: string): Promise<void>
+declare function getSkill(id: string): Promise<SkillEntry | null>
+declare function markReady(id: string, skillContent: string): Promise<void>
+declare function markFailed(id: string, error: string): Promise<void>
+declare function putLog(skillId: string, logData: object): Promise<void>
+declare function getLogUrl(skillId: string): Promise<string | null>
+declare function listSkills(): SkillSummary[]
+declare function getEconomics(): Economics
