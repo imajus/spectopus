@@ -53,7 +53,7 @@ Agents could generate skills themselves, but it takes time, domain knowledge, an
 An HTTP API server that:
 
 1. **Generates** Agent Skills (SKILL.md) from smart contract addresses via a multi-stage AI pipeline
-2. **Stores** generated skills in S3-compatible object storage
+2. **Stores** generated skills on Filecoin warm storage (content-addressed, permanent URLs)
 3. **Serves** skills behind x402 paywalls
 4. **Registers** each generated skill on x402 Bazaar for discovery by other agents
 
@@ -94,7 +94,7 @@ See [Specification](./Specification.md) for architecture, API details, pipeline 
 2. Agent Identity — ERC-8004 identity already registered on Base Mainnet
 3. Agent Capability Manifest — provide `agent.json` with agent name, operator wallet, ERC-8004 identity, supported tools, tech stack
 4. Structured Execution Logs — provide `agent_log.json` showing pipeline decisions, tool calls, retries, failures, and outputs
-5. Tool Use — block explorer API, LLM inference, S3 storage, x402 Bazaar registration; multi-tool orchestration
+5. Tool Use — block explorer API, LLM inference, Filecoin storage (Synapse SDK), x402 Bazaar registration; multi-tool orchestration
 6. Safety and Guardrails — validation stage cross-checks generated code against ABI, spec validation, retry loop with max attempts
 7. Compute Budget Awareness — bounded LLM calls (max 2 validation retries), pipeline timeout
 

@@ -24,8 +24,8 @@
 └──────────────────────────────────────────────────┘
          │                        │
          ▼                        ▼
-   S3-compatible              x402 Bazaar
-   object storage          (discovery layer)
+   Filecoin warm              x402 Bazaar
+   storage (Synapse)       (discovery layer)
 ```
 
 ## Technology Stack
@@ -34,7 +34,7 @@
 - **Framework:** Express
 - **Payments:** `@x402/express` v2 + PayAI facilitator (`HTTPFacilitatorClient`) + `ExactEvmScheme` — USDC on Base Mainnet
 - **Discovery:** x402 Bazaar (auto-indexed by PayAI facilitator during payment settlement, via `declareDiscoveryExtension`)
-- **Storage:** S3-compatible object storage (`@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`)
+- **Storage:** Filecoin warm storage (`@filoz/synapse-sdk`, `viem`) — content-addressed, permanent PDP HTTP URLs
 - **AI:** LangChain (`@langchain/core`, `@langchain/openai`) + LangGraph (`@langchain/langgraph`) for ReAct agent
 - **LLM:** OpenAI GPT-5
 - **Block explorer:** Blockscout API v2 (free, no API key required)
@@ -42,7 +42,7 @@
 
 ## Generation Pipeline
 
-Three async stages: **Research** (LangGraph ReAct agent with tools) → **Generate** (LLM produces SKILL.md) → **Validate** (spec + ABI cross-check + safety check). Validation failure retries Generate (max 2 loops). Progress tracked via JSON status in S3 (`generating` → `ready` | `failed`).
+Three async stages: **Research** (LangGraph ReAct agent with tools) → **Generate** (LLM produces SKILL.md) → **Validate** (spec + ABI cross-check + safety check). Validation failure retries Generate (max 2 loops). Progress tracked in-memory (`generating` → `ready` | `failed`); final artifacts uploaded to Filecoin on completion.
 
 ### Research Tools
 - `fetchABI(contractAddress)` — fetches parsed ABI JSON from Blockscout API v2
@@ -50,10 +50,10 @@ Three async stages: **Research** (LangGraph ReAct agent with tools) → **Genera
 - `detectERCPatterns(abi)` — identifies ERC-20, ERC-721, ERC-1155, and other standards from ABI signatures
 
 ### Storage Format
-Skills are stored as JSON files (`skills/{id}.json`) in S3 with structured status/content fields. The `GET /skills/:id` endpoint returns `application/json`.
+Pipeline state is tracked in an in-memory `Map<skillId, SkillEntry>`. On `markReady`, skill content is uploaded to Filecoin warm storage via Synapse SDK and the PieceCID stored in the index. The `GET /skills/:id` endpoint returns `application/json` from the in-memory index.
 
 ### Execution Logging
-Each pipeline run creates a structured log via `src/pipeline/logger.js`. The logger accumulates stage transitions, decisions, tool calls, LLM inputs/outputs, and errors in memory, then writes to S3 at `logs/{skillId}.json`. `GET /skills/:id` includes a `logUrl` (24h presigned S3 URL) when status is `ready` or `failed`.
+Each pipeline run creates a structured log via `src/pipeline/logger.js`. The logger accumulates stage transitions, decisions, tool calls, LLM inputs/outputs, and errors in memory, then uploads to Filecoin via `putLog()`. `GET /skills/:id` includes a `logUrl` (permanent Filecoin PDP HTTP URL) when status is `ready` or `failed`.
 
 ### Guardrails
 - Input validation: address format check (400 on invalid), message sanitization (control char stripping, 500-char limit), 16kb body size limit
@@ -64,7 +64,7 @@ Each pipeline run creates a structured log via `src/pipeline/logger.js`. The log
 
 ## Key Decisions
 
-- **JSON storage, no database** — skill status and content stored as JSON in S3; no separate database
+- **In-memory index, Filecoin for artifacts** — mutable pipeline state in a `Map`; only final skill content and logs uploaded to Filecoin (immutable, content-addressed); no database, no restart recovery (PoC trade-off)
 - **Fire-and-forget pipeline** — API returns immediately, caller polls GET for progress
 - **LangChain over Vercel AI SDK** — migrated due to critical multi-step tool-calling bugs in `ai@6`; LangGraph ReAct agent handles the research loop reliably
 - **Blockscout over Etherscan** — Etherscan V1 API deprecated, V2 requires paid plan for Base; Blockscout is free with no API key
