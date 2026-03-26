@@ -5,6 +5,7 @@ import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { model } from './model.js';
 import { researchTools } from '../tools/research.js';
+import { createLangChainCallbacks } from './logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SYSTEM_PROMPT = readFileSync(join(__dirname, 'prompts/research-system.md'), 'utf8');
@@ -12,20 +13,9 @@ const SYSTEM_PROMPT = readFileSync(join(__dirname, 'prompts/research-system.md')
 /**
  * Run the research stage for a smart contract.
  * @param {string} contractAddress
+ * @param {object} logger
  * @returns {Promise<object>} structured research summary
  */
-function serializeMessages(messages) {
-  return messages.map((msg) => {
-    const role =
-      msg._getType?.() === 'human' ? 'user'
-      : msg._getType?.() === 'ai' ? 'assistant'
-      : msg._getType?.() === 'tool' ? 'tool'
-      : 'system';
-    const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-    return { role, content };
-  });
-}
-
 export async function runResearch(contractAddress, logger) {
   const agent = createReactAgent({ llm: model, tools: researchTools });
 
@@ -36,11 +26,12 @@ export async function runResearch(contractAddress, logger) {
         `Research the smart contract at address <contract_address>${contractAddress}</contract_address> on Base Mainnet (chainId 8453). Use the tools to fetch the ABI, source code, and detect ERC patterns. Then return a JSON object with your findings.`
       ),
     ],
+  }, {
+    callbacks: logger ? createLangChainCallbacks(logger) : [],
   });
 
   const messages = result.messages;
   const lastMessage = messages[messages.length - 1];
-  logger?.logLLMCall('research-agent', serializeMessages(messages.slice(0, -1)), typeof lastMessage.content === 'string' ? lastMessage.content : JSON.stringify(lastMessage.content));
   const text = typeof lastMessage.content === 'string' ? lastMessage.content : JSON.stringify(lastMessage.content);
 
   // Extract JSON from the response text

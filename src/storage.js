@@ -1,94 +1,84 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { getSynapse, uploadToFilecoin } from './synapse.js';
+import { asPieceCID } from '@filoz/synapse-core/piece';
 
-let client;
+/** @type {Map<string, Session>} */
+const sessions = new Map();
 
-function getClient() {
-  if (!client) {
-    client = new S3Client({
-      endpoint: process.env.S3_ENDPOINT,
-      region: process.env.S3_REGION ?? 'auto',
-      credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY,
-        secretAccessKey: process.env.S3_SECRET_KEY,
-      },
-      forcePathStyle: true,
-    });
-  }
-  return client;
-}
+// --- Session management (in-memory, ephemeral) ---
 
-const bucket = () => process.env.S3_BUCKET;
-const key = (id) => `skills/${id}.json`;
-const logKey = (id) => `logs/${id}.json`;
-
-async function putSkillObject(id, obj) {
-  await getClient().send(new PutObjectCommand({
-    Bucket: bucket(),
-    Key: key(id),
-    Body: JSON.stringify(obj),
-    ContentType: 'application/json',
-  }));
-}
-
-export async function getSkill(id) {
-  try {
-    const response = await getClient().send(new GetObjectCommand({
-      Bucket: bucket(),
-      Key: key(id),
-    }));
-    const text = await response.Body.transformToString();
-    return JSON.parse(text);
-  } catch (err) {
-    if (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404) {
-      return null;
-    }
-    throw err;
-  }
-}
-
-export async function createPlaceholder(id, metadata) {
-  await putSkillObject(id, {
-    id,
+export async function createSession(sid, metadata) {
+  sessions.set(sid, {
+    sid,
     status: 'generating',
     stage: 'research',
     contractAddress: metadata.contractAddress,
     chainId: 8453,
-    content: '',
+    skillCid: null,
+    logCid: null,
+    error: null,
+    createdAt: new Date().toISOString(),
   });
 }
 
-export async function updateStage(id, stage) {
-  const obj = await getSkill(id);
-  if (!obj) throw new Error(`Skill ${id} not found`);
-  await putSkillObject(id, { ...obj, stage });
+export async function updateStage(sid, stage) {
+  const session = sessions.get(sid);
+  if (!session) throw new Error(`Session ${sid} not found`);
+  session.stage = stage;
 }
 
-export async function markFailed(id, error) {
-  const obj = await getSkill(id);
-  const base = obj ?? { id, chainId: 8453, contractAddress: '', content: '' };
-  await putSkillObject(id, { ...base, status: 'failed', content: error });
+export async function getSession(sid) {
+  return sessions.get(sid) ?? null;
 }
 
-export async function putLog(skillId, logData) {
-  await getClient().send(new PutObjectCommand({
-    Bucket: bucket(),
-    Key: logKey(skillId),
-    Body: JSON.stringify(logData),
-    ContentType: 'application/json',
-  }));
-}
-
-export async function getLogUrl(skillId) {
-  const command = new GetObjectCommand({
-    Bucket: bucket(),
-    Key: logKey(skillId),
+export async function markReady(sid, skillContent) {
+  const session = sessions.get(sid);
+  if (!session) throw new Error(`Session ${sid} not found`);
+  const { pieceCid } = await uploadToFilecoin(skillContent, {
+    filename: `skills/${sid}.md`,
+    contentType: 'text/markdown',
   });
-  return getSignedUrl(getClient(), command, { expiresIn: 86400 });
+  session.status = 'ready';
+  session.skillCid = pieceCid;
 }
 
-export async function markReady(id, skillContent) {
-  const obj = await getSkill(id);
-  if (!obj) throw new Error(`Skill ${id} not found`);
-  await putSkillObject(id, { ...obj, status: 'ready', content: skillContent });
+export async function markFailed(sid, error) {
+  const session = sessions.get(sid) ?? {
+    sid,
+    status: 'failed',
+    stage: null,
+    contractAddress: '',
+    chainId: 8453,
+    skillCid: null,
+    logCid: null,
+    error,
+    createdAt: new Date().toISOString(),
+  };
+  session.status = 'failed';
+  session.error = error;
+  if (!sessions.has(sid)) sessions.set(sid, session);
+}
+
+export async function putLog(sid, logData) {
+  const { pieceCid } = await uploadToFilecoin(JSON.stringify(logData), {
+    filename: `logs/${sid}.json`,
+    contentType: 'application/json',
+  });
+  const session = sessions.get(sid);
+  if (session) session.logCid = pieceCid;
+}
+
+export async function getLogUrl(sid) {
+  const session = sessions.get(sid);
+  if (!session?.logCid) return null;
+  const synapse = await getSynapse();
+  const ctx = await synapse.storage.getDefaultContext();
+  return ctx.getPieceUrl(session.logCid);
+}
+
+// --- Skill retrieval (permanent — works after restart via Filecoin PDP URL) ---
+
+export async function getSkillUrl(pieceCidStr) {
+  const synapse = await getSynapse();
+  const ctx = await synapse.storage.getDefaultContext();
+  return ctx.getPieceUrl(asPieceCID(pieceCidStr));
 }

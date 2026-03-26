@@ -3,6 +3,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { model } from './model.js';
+import { createLangChainCallbacks } from './logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ABI_SYSTEM_PROMPT = readFileSync(join(__dirname, 'prompts/validate-abi-system.md'), 'utf8');
@@ -75,10 +76,11 @@ If valid, errors should be an empty array.`;
   const response = await model.invoke([
     new SystemMessage(ABI_SYSTEM_PROMPT),
     new HumanMessage(userContent),
-  ]);
+  ], {
+    callbacks: logger ? createLangChainCallbacks(logger) : [],
+  });
 
   const text = response.content;
-  logger?.logLLMCall('validate-abi', [{ role: 'system', content: ABI_SYSTEM_PROMPT }, { role: 'user', content: userContent }], text);
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return { valid: false, errors: ['ABI cross-check: LLM response was unparseable'] };
@@ -126,10 +128,11 @@ If valid, errors should be an empty array.`;
   const response = await model.invoke([
     new SystemMessage(SAFETY_SYSTEM_PROMPT),
     new HumanMessage(userContent),
-  ]);
+  ], {
+    callbacks: logger ? createLangChainCallbacks(logger) : [],
+  });
 
   const text = response.content;
-  logger?.logLLMCall('validate-safety', [{ role: 'system', content: SAFETY_SYSTEM_PROMPT }, { role: 'user', content: userContent }], text);
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return { valid: false, errors: ['Safety check: LLM response was unparseable'] };

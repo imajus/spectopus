@@ -3,6 +3,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { model } from './model.js';
+import { createLangChainCallbacks } from './logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SYSTEM_PROMPT = readFileSync(join(__dirname, 'prompts/generate-system.md'), 'utf8');
@@ -12,6 +13,7 @@ const SYSTEM_PROMPT = readFileSync(join(__dirname, 'prompts/generate-system.md')
  * @param {object} research - structured research summary from runResearch
  * @param {string[]} [validationErrors] - errors from previous validation attempt (for retries)
  * @param {string} [message] - optional user-supplied context message
+ * @param {object} logger
  * @returns {Promise<string>} SKILL.md content
  */
 export async function runGenerate(research, validationErrors = [], message, logger) {
@@ -25,17 +27,13 @@ export async function runGenerate(research, validationErrors = [], message, logg
     userContent += `\n\nIMPORTANT: The previous generation attempt failed validation with these errors. Fix all of them:\n${validationErrors.map((e) => `- ${e}`).join('\n')}`;
   }
 
-  const input = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: userContent },
-  ];
-
   const response = await model.invoke([
     new SystemMessage(SYSTEM_PROMPT),
     new HumanMessage(userContent),
-  ]);
+  ], {
+    callbacks: logger ? createLangChainCallbacks(logger) : [],
+  });
 
   const output = response.content.trim();
-  logger?.logLLMCall('generate', input, output);
   return output;
 }

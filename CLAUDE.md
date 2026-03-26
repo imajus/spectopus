@@ -4,22 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Spectopus is an AI-powered agent skill generator for smart contracts. It exposes an HTTP API that generates Agent Skills (SKILL.md files) from smart contract addresses, stores them in S3, serves them behind x402 paywalls, and registers them on x402 Bazaar for discovery.
+Spectopus is an AI-powered agent skill generator for smart contracts. It exposes an HTTP API that generates Agent Skills (SKILL.md files) from smart contract addresses, stores them on Filecoin warm storage, serves them behind x402 paywalls, and registers them on x402 Bazaar for discovery.
 
 Built for The Synthesis hackathon (Theme: Agents that trust) targeting Base Mainnet.
 
 ## Architecture
 
-Express server with two x402-paywalled endpoints:
-- `POST /skills/generate` ($0.10 USDC) — kicks off async 3-stage pipeline, returns skill ID
-- `GET /skills/:id` ($0.01 USDC) — returns SKILL.md content (or generation status if in progress)
+Express server with three endpoints:
+- `POST /skills/generate` ($0.10 USDC) — kicks off async 3-stage pipeline, returns `{ sessionId, statusUrl }`
+- `GET /skills/status/:sid` (free) — polls session state; returns `skillId` (Filecoin PieceCID) when ready
+- `GET /skills/:id` ($0.01 USDC) — fetches skill SKILL.md content from Filecoin by PieceCID (`:id`); survives restarts
 
 ### Generation Pipeline (async, 3 stages)
 1. **Research** — AI agent with tools (fetch ABI, fetch source code, detect ERC patterns) analyzes the contract
 2. **Generate** — LLM produces SKILL.md following Agent Skills spec
 3. **Validate** — spec validation + ABI cross-check + safety check; retries Stage 2 on failure (max 2 loops)
 
-Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Completed skills are auto-indexed on Coinbase x402 Bazaar via the PayAI facilitator during payment settlement.
+Pipeline progress is tracked in memory (in-memory Map). Final artifacts (skill content and execution logs) are uploaded to Filecoin warm storage via Synapse SDK on completion. Completed skills are auto-indexed on x402 Bazaar via the PayAI facilitator during payment settlement.
 
 ### Pipeline Guardrails
 - `src/guardrails.js` — central utility: `isValidAddress` (regex), `sanitizeMessage` (strip control chars, 500-char limit), `scanOutput` (blocklist check)
@@ -30,7 +31,7 @@ Pipeline progress is tracked by updating the SKILL.md placeholder in S3. Complet
 - Output scanned via `scanOutput()` before `markReady()` — throws on blocked patterns
 
 ### Execution Logging
-Each pipeline run creates a structured log via `src/pipeline/logger.js` (`createLogger(skillId, contractAddress)`). The logger accumulates stage transitions, decisions, tool calls, LLM inputs/outputs, and errors in memory, then writes to S3 at `logs/{skillId}.json` on `flush()`. `GET /skills/:id` includes a `logUrl` (24h presigned S3 URL) when status is `ready` or `failed`.
+Each pipeline run creates a structured log via `src/pipeline/logger.js` (`createLogger(skillId, contractAddress)`). The logger accumulates stage transitions, decisions, tool calls, LLM inputs/outputs, and errors in memory, then uploads to Filecoin via `putLog()` on `flush()`. `GET /skills/status/:sid` includes a `logUrl` (permanent Filecoin PDP HTTP URL) when status is `ready` or `failed`.
 
 Logger methods: `startStage(name)`, `endStage(result)`, `logDecision(message)`, `logToolCall(tool, input)`, `logLLMCall(label, input, output)`, `flush(status, error?)`.
 
@@ -41,7 +42,7 @@ LLM calls are logged per stage: `research-agent` (full ReAct message chain inclu
 - Node.js + Express + `@x402/express` v2 middleware with PayAI facilitator
 - PayAI facilitator (`@payai/facilitator`) — requires `PAY_TO_ADDRESS`; free tier needs no API keys, paid tier uses `PAYAI_API_KEY_ID` + `PAYAI_API_KEY_SECRET`
 - LangChain (`@langchain/core`, `@langchain/openai`) + LangGraph (`@langchain/langgraph`) for ReAct agent — currently GPT-5
-- S3-compatible object storage (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`)
+- Filecoin warm storage (`@filoz/synapse-sdk` + `viem`) — `initStorage()` must be called before `app.listen()`; requires `FILECOIN_PRIVATE_KEY` + `FILECOIN_CHAIN`
 - Basescan/Etherscan API for ABI fetching
 
 ## x402 / Bazaar Notes

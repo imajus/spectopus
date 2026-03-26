@@ -3,7 +3,7 @@ import { ExactEvmScheme } from '@x402/evm/exact/server';
 import { HTTPFacilitatorClient } from '@x402/core/server';
 import { facilitator as payaiFacilitator } from '@payai/facilitator';
 import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
-import { createPlaceholder, getSkill, getLogUrl } from '../storage.js';
+import { createSession, getSession, getLogUrl, getSkillUrl } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
 import { isValidAddress, sanitizeMessage } from '../guardrails.js';
 
@@ -52,39 +52,47 @@ export function registerSkillsRoutes(app) {
 
   app.post('/skills/generate', async (req, res) => {
     const { contractAddress, message } = req.body ?? {};
-
     if (!contractAddress) {
       return res.status(400).json({ error: 'contractAddress is required' });
     }
-
     if (!isValidAddress(contractAddress)) {
       return res.status(400).json({ error: 'contractAddress must be a valid Ethereum address (0x followed by 40 hex characters)' });
     }
-
     const sanitizedMessage = message != null ? sanitizeMessage(message, 500) : undefined;
-
-    const id = crypto.randomUUID();
-    const url = `${BASE_URL}/skills/${id}`;
-
-    await createPlaceholder(id, { contractAddress });
-
-    runPipeline(id, contractAddress, sanitizedMessage).catch(err => {
-      console.error(`Pipeline failed for skill ${id}:`, err);
+    const sessionId = crypto.randomUUID();
+    const statusUrl = `${BASE_URL}/skills/status/${sessionId}`;
+    await createSession(sessionId, { contractAddress });
+    runPipeline(sessionId, contractAddress, sanitizedMessage)
+    .then(() => {
+      console.log(`Pipeline completed for session ${sessionId}`);
+    })
+    .catch(err => {
+      console.error(`Pipeline failed for session ${sessionId}:`, err);
     });
+    return res.json({ sessionId, statusUrl });
+  });
 
-    return res.json({ id, url });
+  app.get('/skills/status/:sid', async (req, res) => {
+    const { sid } = req.params;
+    const session = await getSession(sid);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    const status = session.status === 'generating' ? 'processing' : session.status;
+    const response = { sessionId: sid, status, stage: session.stage };
+    if (session.skillCid) response.skillId = session.skillCid.toString();
+    if (session.status === 'ready' || session.status === 'failed') {
+      response.logUrl = await getLogUrl(sid);
+    }
+    if (session.error) response.error = session.error;
+    return res.json(response);
   });
 
   app.get('/skills/:id', async (req, res) => {
     const { id } = req.params;
-
-    const skill = await getSkill(id);
-    if (!skill) return res.status(404).json({ error: 'Skill not found' });
-    const status = skill.status === 'generating' ? 'processing' : skill.status;
-    const response = { ...skill, status };
-    if (skill.status === 'ready' || skill.status === 'failed') {
-      response.logUrl = await getLogUrl(id);
+    try {
+      const skillUrl = await getSkillUrl(id);
+      return res.json({ skillUrl });
+    } catch {
+      return res.status(404).json({ error: 'Skill not found' });
     }
-    return res.json(response);
   });
 }
