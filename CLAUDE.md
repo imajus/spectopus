@@ -39,7 +39,7 @@ LLM calls are logged per stage: `research-agent` (full ReAct message chain inclu
 ## Tech Stack
 
 - Node.js + Express + `@x402/express` v2 middleware with PayAI facilitator
-- PayAI facilitator — requires `X402_FACILITATOR_URL` + `PAY_TO_ADDRESS`
+- PayAI facilitator (`@payai/facilitator`) — requires `PAY_TO_ADDRESS`; free tier needs no API keys, paid tier uses `PAYAI_API_KEY_ID` + `PAYAI_API_KEY_SECRET`
 - LangChain (`@langchain/core`, `@langchain/openai`) + LangGraph (`@langchain/langgraph`) for ReAct agent — currently GPT-5
 - S3-compatible object storage (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`)
 - Basescan/Etherscan API for ABI fetching

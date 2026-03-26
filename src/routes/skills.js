@@ -1,17 +1,16 @@
 import { paymentMiddleware, x402ResourceServer } from '@x402/express';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
 import { HTTPFacilitatorClient } from '@x402/core/server';
+import { facilitator as payaiFacilitator } from '@payai/facilitator';
 import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
 import { createPlaceholder, getSkill, getLogUrl } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
 import { isValidAddress, sanitizeMessage } from '../guardrails.js';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const DEFAULT_FACILITATOR_URL = 'https://facilitator.payai.network/';
 
 function buildPaymentMiddleware(payToAddress) {
-  const facilitatorUrl = process.env.X402_FACILITATOR_URL || DEFAULT_FACILITATOR_URL;
-  const facilitatorClient = new HTTPFacilitatorClient({ url: facilitatorUrl });
+  const facilitatorClient = new HTTPFacilitatorClient(payaiFacilitator);
   const resourceServer = new x402ResourceServer(facilitatorClient)
     .register('eip155:8453', new ExactEvmScheme());
 
