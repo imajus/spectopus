@@ -62,7 +62,11 @@ export function registerSkillsRoutes(app) {
     const sessionId = crypto.randomUUID();
     const statusUrl = `${BASE_URL}/skills/status/${sessionId}`;
     await createSession(sessionId, { contractAddress });
-    runPipeline(sessionId, contractAddress, sanitizedMessage).catch(err => {
+    runPipeline(sessionId, contractAddress, sanitizedMessage)
+    .then(() => {
+      console.log(`Pipeline completed for session ${sessionId}`);
+    })
+    .catch(err => {
       console.error(`Pipeline failed for session ${sessionId}:`, err);
     });
     return res.json({ sessionId, statusUrl });
