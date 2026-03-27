@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { HTTPFacilitatorClient, x402ResourceServer } from '@x402/core/server';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
 import { facilitator as payaiFacilitator } from '@payai/facilitator';
-import { createPlaceholder, getSkill } from '../storage.js';
+import { createSession } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
 import { isValidAddress } from '../guardrails.js';
+import { getPieceUrl } from '#synapse.js';
 
 const ADDRESS_REGEX = /0x[0-9a-fA-F]{40}/;
 
@@ -278,10 +279,7 @@ export class SpectopusExecutor {
   }
 
   async _runPipelineAndPublish(taskId, contextId, contractAddress, settleResponse, eventBus) {
-    const skillId = randomUUID();
-
-    await createPlaceholder(skillId, { contractAddress });
-
+    const sessionId = await createSession({ contractAddress });
     eventBus.publish(
       statusEvent(
         taskId,
@@ -297,13 +295,14 @@ export class SpectopusExecutor {
       : [];
 
     try {
-      await runPipeline(skillId, contractAddress, undefined, (stage) => {
+      await runPipeline(sessionId, contractAddress, undefined, (stage) => {
         const msg = STAGE_MESSAGES[stage] ?? `Processing stage: ${stage}`;
         eventBus.publish(statusEvent(taskId, contextId, 'working', msg, null));
       });
 
-      const skill = await getSkill(skillId);
-      const skillContent = skill?.content ?? '';
+      const session = await getSession(sessionId);
+      const skillUrl = await getPieceUrl(session.skillCid);
+      const skillContent = await fetch(skillUrl);
 
       // Publish artifact
       eventBus.publish({
@@ -311,7 +310,7 @@ export class SpectopusExecutor {
         taskId,
         contextId,
         artifact: {
-          artifactId: skillId,
+          artifactId: sessionId,
           name: 'SKILL.md',
           description: `Agent skill for contract ${contractAddress}`,
           parts: [{ kind: 'text', text: skillContent }],
@@ -324,7 +323,7 @@ export class SpectopusExecutor {
           taskId,
           contextId,
           'completed',
-          `Skill generation complete. Skill ID: ${skillId}`,
+          `Skill generation complete. Skill ID: ${session.skillCid.toString()}`,
           { 'x402.payment.receipts': receipts },
           true,
         ),

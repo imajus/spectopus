@@ -59,9 +59,8 @@ export function registerSkillsRoutes(app) {
       return res.status(400).json({ error: 'contractAddress must be a valid Ethereum address (0x followed by 40 hex characters)' });
     }
     const sanitizedMessage = message != null ? sanitizeMessage(message, 500) : undefined;
-    const sessionId = crypto.randomUUID();
+    const sessionId = await createSession({ contractAddress });
     const statusUrl = `${BASE_URL}/skills/status/${sessionId}`;
-    await createSession(sessionId, { contractAddress });
     runPipeline(sessionId, contractAddress, sanitizedMessage)
     .then(() => {
       console.log(`Pipeline completed for session ${sessionId}`);
