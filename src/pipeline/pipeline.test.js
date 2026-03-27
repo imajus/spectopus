@@ -5,6 +5,7 @@ vi.mock('../storage.js', () => ({
   updateStage: vi.fn().mockResolvedValue(undefined),
   markReady: vi.fn().mockResolvedValue(undefined),
   markFailed: vi.fn().mockResolvedValue(undefined),
+  putLog: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('./research.js', () => ({

@@ -1,4 +1,5 @@
-import { getSynapse, uploadToFilecoin } from './synapse.js';
+import { randomUUID } from 'node:crypto';
+import { getPieceUrl, getSynapse, uploadToFilecoin } from './synapse.js';
 import { asPieceCID } from '@filoz/synapse-core/piece';
 
 /** @type {Map<string, Session>} */
@@ -6,18 +7,20 @@ const sessions = new Map();
 
 // --- Session management (in-memory, ephemeral) ---
 
-export async function createSession(sid, metadata) {
+export async function createSession({ contractAddress }) {
+  const sid = randomUUID();
   sessions.set(sid, {
     sid,
     status: 'generating',
     stage: 'research',
-    contractAddress: metadata.contractAddress,
+    contractAddress,
     chainId: 8453,
     skillCid: null,
     logCid: null,
     error: null,
     createdAt: new Date().toISOString(),
   });
+  return sid;
 }
 
 export async function updateStage(sid, stage) {
@@ -77,8 +80,11 @@ export async function getLogUrl(sid) {
 
 // --- Skill retrieval (permanent — works after restart via Filecoin PDP URL) ---
 
-export async function getSkillUrl(pieceCidStr) {
-  const synapse = await getSynapse();
-  const ctx = await synapse.storage.getDefaultContext();
-  return ctx.getPieceUrl(asPieceCID(pieceCidStr));
+/**
+ * 
+ * @param {string} cid 
+ * @returns 
+ */
+export async function getSkillUrl(cid) {
+  return getPieceUrl(asPieceCID(cid));
 }

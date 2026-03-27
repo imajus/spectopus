@@ -67,3 +67,14 @@ export async function uploadToFilecoin(content, meta) {
   }
   return { pieceCid: result.pieceCid };
 }
+
+/**
+ * 
+ * @param {import('@filoz/synapse-sdk').PieceCID} cid 
+ * @returns 
+ */
+export async function getPieceUrl(cid) {
+  const synapse = await getSynapse();
+  const ctx = await synapse.storage.getDefaultContext();
+  return ctx.getPieceUrl(cid);
+}

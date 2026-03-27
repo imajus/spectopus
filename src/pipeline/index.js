@@ -13,14 +13,17 @@ const MAX_RETRIES = 2;
  * @param {string} sessionId - session ID for tracking pipeline progress
  * @param {string} contractAddress - contract address to generate skill for
  * @param {string} [message] - optional user message / extra context
+ * @param {Function} [onProgress] - optional callback(stage: string) called at each stage transition
  */
-export async function runPipeline(sessionId, contractAddress, message) {
+export async function runPipeline(sessionId, contractAddress, message, onProgress) {
   let retries = 0;
   const logger = createLogger(sessionId, contractAddress);
   try {
     // Stage 1: Research
     await updateStage(sessionId, 'research');
     logger.startStage('research');
+    onProgress?.('research');
+
     const research = await runResearch(contractAddress, logger);
     logger.logDecision(`ABI available: ${research.abiAvailable}`);
     if (research.abiAvailable === false) {
@@ -31,11 +34,15 @@ export async function runPipeline(sessionId, contractAddress, message) {
     // Stage 2: Generate
     await updateStage(sessionId, 'generate');
     logger.startStage('generate');
+    onProgress?.('generate');
+
     let skillContent = await runGenerate(research, [], message, logger);
     logger.endStage({ generated: true });
     // Stage 3: Validate (with retry loop)
     await updateStage(sessionId, 'validate');
     logger.startStage('validate');
+    onProgress?.('validate');
+
     let validation = await runValidate(skillContent, research.abi || [], logger);
     while (!validation.valid && retries < MAX_RETRIES) {
       retries++;
@@ -44,10 +51,12 @@ export async function runPipeline(sessionId, contractAddress, message) {
       // Retry: generate with feedback, then re-validate
       await updateStage(sessionId, 'generate');
       logger.startStage('generate');
+      onProgress?.('generate');
       skillContent = await runGenerate(research, validation.errors, message, logger);
       logger.endStage({ generated: true, retry: retries });
       await updateStage(sessionId, 'validate');
       logger.startStage('validate');
+      onProgress?.('validate');
       validation = await runValidate(skillContent, research.abi || [], logger);
     }
     if (!validation.valid) {
