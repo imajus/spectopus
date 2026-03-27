@@ -2,10 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { HTTPFacilitatorClient, x402ResourceServer } from '@x402/core/server';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
 import { facilitator as payaiFacilitator } from '@payai/facilitator';
-import { createSession } from '../storage.js';
+import { createSession, getSession } from '../storage.js';
 import { runPipeline } from '../pipeline/index.js';
 import { isValidAddress } from '../guardrails.js';
-import { getPieceUrl } from '#synapse.js';
+import { getPieceUrl } from '../synapse.js';
 
 const ADDRESS_REGEX = /0x[0-9a-fA-F]{40}/;
 

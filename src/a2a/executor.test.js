@@ -2,9 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock storage and pipeline so tests don't hit S3 or LLMs
 vi.mock('../storage.js', () => ({
-  createPlaceholder: vi.fn().mockResolvedValue(undefined),
-  getSkill: vi.fn().mockResolvedValue({ content: '# SKILL' }),
+  createSession: vi.fn().mockResolvedValue('fake-session-id'),
+  getSession: vi.fn().mockResolvedValue({ skillCid: 'fake-piece-cid' }),
 }));
+
+vi.mock('../synapse.js', () => ({
+  getPieceUrl: vi.fn().mockResolvedValue('https://example.com/skill'),
+}));
+
+global.fetch = vi.fn().mockResolvedValue('MOCK TEXT CONTENT');
 
 vi.mock('../pipeline/index.js', () => ({
   runPipeline: vi.fn().mockResolvedValue(undefined),
@@ -162,6 +168,9 @@ describe('SpectopusExecutor', () => {
         ),
         eb2,
       );
+
+      const failedEvent = eb2.events.find((e) => e.status?.state === 'failed');
+      if (failedEvent) console.log('Failure message:', failedEvent.status.message.parts[0].text);
 
       const states = eb2.events.map((e) => e.status?.state);
       expect(states).toContain('working');

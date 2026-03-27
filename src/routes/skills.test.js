@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.js';
 
+import { randomUUID } from 'node:crypto';
+
 vi.mock('../storage.js', () => ({
-  createSession: vi.fn().mockResolvedValue(undefined),
+  createSession: vi.fn().mockImplementation(async () => randomUUID()),
   getSession: vi.fn().mockResolvedValue(null),
   getLogUrl: vi.fn().mockResolvedValue('https://pdp.example.com/piece/bafylog1'),
   getSkillUrl: vi.fn().mockResolvedValue('https://pdp.example.com/piece/bafySkill1'),
@@ -51,7 +53,7 @@ describe('POST /skills/generate', () => {
       .post('/skills/generate')
       .send({ contractAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' });
 
-    expect(createSession).toHaveBeenCalledWith(res.body.sessionId, {
+    expect(createSession).toHaveBeenCalledWith({
       contractAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
     });
   });

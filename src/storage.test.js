@@ -6,8 +6,14 @@ let uploadCount = 0;
 vi.mock('@filoz/synapse-sdk', () => {
   class MockSynapse {
     constructor() {
+      this.payments = {
+        walletBalance: vi.fn(async () => 1000000n),
+      };
       this.storage = {
-        prepare: vi.fn(async () => ({ transaction: null, costs: {} })),
+        prepare: vi.fn(async () => ({
+          transaction: null,
+          costs: { depositNeeded: 0n, rate: { perMonth: 0n }, ready: true },
+        })),
         getDefaultContext: vi.fn(async () => ({
           getPieceUrl: (pieceCid) => `https://pdp.example.com/piece/${pieceCid}`,
         })),
@@ -38,6 +44,8 @@ vi.mock('@filoz/synapse-sdk', () => {
     Synapse: MockSynapse,
     calibration: { id: 314159, name: 'Filecoin Calibration' },
     mainnet: { id: 314, name: 'Filecoin' },
+    TOKENS: { USDFC: 'usdfc' },
+    formatUnits: vi.fn(() => '10.00'),
   };
 });
 
@@ -47,6 +55,10 @@ vi.mock('viem/accounts', () => ({
 
 vi.mock('multiformats/cid', () => ({
   CID: { parse: vi.fn((str) => ({ toString: () => str })) },
+}));
+
+vi.mock('@filoz/synapse-core/piece', () => ({
+  asPieceCID: vi.fn((cid) => cid),
 }));
 
 beforeEach(async () => {
@@ -59,17 +71,16 @@ beforeEach(async () => {
 
 async function getStorage() {
   const mod = await import('./storage.js');
-  await mod.initStorage();
   return mod;
 }
 
 describe('createSession + getSession', () => {
   it('creates session with generating status', async () => {
     const { createSession, getSession } = await getStorage();
-    await createSession('abc123', { contractAddress: '0xDEAD' });
-    const s = await getSession('abc123');
+    const sid = await createSession({ contractAddress: '0xDEAD' });
+    const s = await getSession(sid);
     expect(s).toMatchObject({
-      sid: 'abc123',
+      sid,
       status: 'generating',
       stage: 'research',
       contractAddress: '0xDEAD',
@@ -88,9 +99,9 @@ describe('createSession + getSession', () => {
 describe('updateStage', () => {
   it('modifies stage field in memory', async () => {
     const { createSession, updateStage, getSession } = await getStorage();
-    await createSession('abc123', { contractAddress: '0xDEAD' });
-    await updateStage('abc123', 'generate');
-    expect((await getSession('abc123')).stage).toBe('generate');
+    const sid = await createSession({ contractAddress: '0xDEAD' });
+    await updateStage(sid, 'generate');
+    expect((await getSession(sid)).stage).toBe('generate');
   });
 
   it('throws for unknown sid', async () => {
@@ -102,9 +113,9 @@ describe('updateStage', () => {
 describe('markFailed', () => {
   it('sets status to failed without uploading', async () => {
     const { createSession, markFailed, getSession } = await getStorage();
-    await createSession('abc123', { contractAddress: '0xDEAD' });
-    await markFailed('abc123', 'Validation failed');
-    const s = await getSession('abc123');
+    const sid = await createSession({ contractAddress: '0xDEAD' });
+    await markFailed(sid, 'Validation failed');
+    const s = await getSession(sid);
     expect(s.status).toBe('failed');
     expect(s.error).toBe('Validation failed');
   });
@@ -121,18 +132,18 @@ describe('markFailed', () => {
 describe('markReady', () => {
   it('uploads to Filecoin and stores skillCid (PieceCID)', async () => {
     const { createSession, markReady, getSession } = await getStorage();
-    await createSession('abc123', { contractAddress: '0xDEAD' });
-    await markReady('abc123', '# My Skill\n');
-    const s = await getSession('abc123');
+    const sid = await createSession({ contractAddress: '0xDEAD' });
+    await markReady(sid, '# My Skill\n');
+    const s = await getSession(sid);
     expect(s.status).toBe('ready');
     expect(s.skillCid.toString()).toMatch(/^bafy/);
   });
 
   it('does not set logCid', async () => {
     const { createSession, markReady, getSession } = await getStorage();
-    await createSession('abc123', { contractAddress: '0xDEAD' });
-    await markReady('abc123', '# Skill');
-    const s = await getSession('abc123');
+    const sid = await createSession({ contractAddress: '0xDEAD' });
+    await markReady(sid, '# Skill');
+    const s = await getSession(sid);
     expect(s.logCid).toBeNull();
   });
 
@@ -145,9 +156,9 @@ describe('markReady', () => {
 describe('putLog + getLogUrl', () => {
   it('uploads log and stores retrieval URL', async () => {
     const { createSession, putLog, getLogUrl } = await getStorage();
-    await createSession('abc123', { contractAddress: '0xDEAD' });
-    await putLog('abc123', { stage: 'research', status: 'done' });
-    const url = await getLogUrl('abc123');
+    const sid = await createSession({ contractAddress: '0xDEAD' });
+    await putLog(sid, { stage: 'research', status: 'done' });
+    const url = await getLogUrl(sid);
     expect(url).toContain('pdp.example.com');
   });
 
@@ -160,9 +171,9 @@ describe('putLog + getLogUrl', () => {
 describe('getSkillUrl', () => {
   it('returns PDP URL for a known PieceCID', async () => {
     const { createSession, markReady, getSession, getSkillUrl } = await getStorage();
-    await createSession('abc123', { contractAddress: '0xDEAD' });
-    await markReady('abc123', '# My Skill');
-    const s = await getSession('abc123');
+    const sid = await createSession({ contractAddress: '0xDEAD' });
+    await markReady(sid, '# My Skill');
+    const s = await getSession(sid);
     const skillCidStr = s.skillCid.toString();
     const url = await getSkillUrl(skillCidStr);
     expect(url).toContain('pdp.example.com');
@@ -173,8 +184,8 @@ describe('getSkillUrl', () => {
 describe('minimum piece size padding', () => {
   it('pads small content to 127 bytes', async () => {
     const { createSession, markReady } = await getStorage();
-    await createSession('tiny', { contractAddress: '0xDEAD' });
-    await markReady('tiny', 'hi');
+    const sid = await createSession({ contractAddress: '0xDEAD' });
+    await markReady(sid, 'hi');
     // The uploaded piece should be at least 127 bytes
     const uploaded = Object.values(uploadedPieces).find((v) => v.startsWith('hi'));
     expect(uploaded.length).toBeGreaterThanOrEqual(127);
